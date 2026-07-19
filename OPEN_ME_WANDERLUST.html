@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Voyara Live Project Guide</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: #f8fafc;
+        color: #111827;
+      }
+      main {
+        max-width: 920px;
+        margin: 40px auto;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 18px;
+        padding: 32px;
+        box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+      }
+      h1 {
+        color: #023047;
+        margin-top: 0;
+      }
+      h2 {
+        color: #023047;
+        margin-top: 30px;
+      }
+      code {
+        background: #f3f4f6;
+        padding: 3px 7px;
+        border-radius: 6px;
+      }
+      pre {
+        background: #111827;
+        color: white;
+        padding: 16px;
+        border-radius: 12px;
+        overflow-x: auto;
+      }
+      a {
+        color: #fb8500;
+        font-weight: 700;
+      }
+      .status {
+        display: inline-block;
+        background: #dcfce7;
+        color: #166534;
+        padding: 8px 12px;
+        border-radius: 999px;
+        font-weight: 700;
+      }
+      li {
+        margin: 10px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="status">Voyara frontend + backend project</p>
+      <h1>Open and Run Voyara</h1>
+      <p>This file explains what was added and how to see the live app locally before pushing to GitHub or deploying.</p>
+
+      <h2>Run Locally</h2>
+      <pre>cd "C:\Users\Vanisha\OneDrive\Attachments\Desktop\Documents\New project\WanderlustTravelApp"
+npm install
+npm run dev</pre>
+
+      <p>Then open:</p>
+      <ul>
+        <li>Frontend app: <a href="http://localhost:5173/">http://localhost:5173/</a></li>
+        <li>Backend health check: <a href="http://localhost:4000/api/health">http://localhost:4000/api/health</a></li>
+        <li>Saved bookings API: <a href="http://localhost:4000/api/bookings">http://localhost:4000/api/bookings</a></li>
+      </ul>
+
+      <h2>What Is Now Real</h2>
+      <ul>
+        <li>React + Vite frontend like a travel booking portal.</li>
+        <li>Node.js REST backend in <code>server/index.js</code>.</li>
+        <li>Bookings API: <code>GET /api/bookings</code> and <code>POST /api/bookings</code>.</li>
+        <li>Saved bookings file: <code>server/data/db.json</code>.</li>
+        <li>Checkout form saves traveler details, selected seats, route, amount, and booking status.</li>
+        <li>My Trips dashboard shows bookings returned by the backend.</li>
+      </ul>
+
+      <h2>Deploy Note</h2>
+      <p>Vercel is perfect for the frontend. For public real-user bookings, deploy the backend on Render/Railway or connect a Vercel serverless API to a hosted database like Neon/Supabase PostgreSQL.</p>
+      <p>Open <code>LIVE_DEPLOYMENT_GUIDE.md</code> in this folder for the exact GitHub, Vercel, and backend deployment steps.</p>
+    </main>
+  </body>
+</html>

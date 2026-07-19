@@ -1,0 +1,31 @@
+{
+  "bookings": [
+    {
+      "id": "WND-515598",
+      "status": "CONFIRMED",
+      "paymentStatus": "PAID",
+      "createdAt": "2026-07-18T09:21:55.598Z",
+      "vehicleName": "Vistara Premium Economy",
+      "vehicleType": "Premium Economy • Meal included",
+      "route": "Delhi to Dubai City",
+      "transportType": "flights",
+      "seats": [
+        24,
+        25
+      ],
+      "amount": 64950,
+      "search": {
+        "from": "Delhi",
+        "departure": "2026-07-25",
+        "returnDate": "2026-07-30",
+        "passengers": "2 Adults"
+      },
+      "traveler": {
+        "name": "Vanisha",
+        "email": "vanisha@example.com",
+        "phone": "9876543210"
+      },
+      "destination": "Dubai City"
+    }
+  ]
+}

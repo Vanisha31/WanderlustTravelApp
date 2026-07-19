@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './index.css';
 import { travelData, packagesData } from './mockData';
+import { api } from './api';
 
 // Fix for default Leaflet markers in Vite
 delete L.Icon.Default.prototype._getIconUrl;
@@ -30,12 +31,175 @@ const radarIcon = new L.divIcon({
   iconAnchor: [10, 10]
 });
 
+const storage = {
+  get(key, fallback) {
+    try {
+      const saved = window.localStorage.getItem(key);
+      return saved ? JSON.parse(saved) : fallback;
+    } catch {
+      return fallback;
+    }
+  },
+  set(key, value) {
+    try {
+      window.localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      // Demo app: storage can fail in private browsing, so keep the UI usable.
+    }
+  }
+};
+
+const defaultExpenses = [
+  { id: 1, title: 'Flight Tickets', amount: 15000, cat: 'Flight', by: 'Me' },
+  { id: 2, title: 'Cafe 1947 Lunch', amount: 1200, cat: 'Food', by: 'Rahul' }
+];
+
+const destinationKeyMap = {
+  manali: 'manali',
+  kasol: 'manali',
+  kheerganga: 'manali',
+  shimla: 'shimla',
+  bir: 'bir',
+  'bir billing': 'bir',
+  jaipur: 'jaipur',
+  jodhpur: 'jaipur',
+  udaipur: 'jaipur',
+  ubud: 'ubud',
+  'nusa penida': 'ubud',
+  paris: 'paris',
+  zurich: 'paris',
+  'dubai city': 'dubai',
+  dubai: 'dubai',
+  safari: 'dubai',
+  alleppey: 'alleppey',
+  munnar: 'alleppey'
+};
+
+function toTitleCase(value) {
+  return value
+    .split(' ')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function findPackageDestination(query) {
+  const normalizedQuery = query.toLowerCase();
+
+  for (const pkg of packagesData) {
+    const match = pkg.destinations.find((destination) => normalizedQuery.includes(destination.toLowerCase()));
+    if (match) return match;
+  }
+
+  return null;
+}
+
+function getLocalDestinationKey(destination) {
+  return destinationKeyMap[destination.toLowerCase()];
+}
+
+function getDestinationDisplayName(key) {
+  const names = {
+    manali: 'Manali & Himachal',
+    shimla: 'Shimla',
+    bir: 'Bir Billing',
+    jaipur: 'Rajasthan',
+    ubud: 'Bali',
+    paris: 'Paris & Switzerland',
+    dubai: 'Dubai',
+    alleppey: 'Kerala'
+  };
+
+  return names[key] || toTitleCase(key);
+}
+
+function getInitialDestinationState() {
+  const savedBookingDestination = storage.get('wanderlust.bookingDestination', 'Manali');
+  const savedCurrentKey = storage.get('wanderlust.currentDestination', 'manali');
+  const mappedKey = getLocalDestinationKey(savedBookingDestination);
+
+  return {
+    currentKey: mappedKey || savedCurrentKey,
+    bookingDestination: savedBookingDestination
+  };
+}
+
+const bookingTabLabels = {
+  flights: 'Flights',
+  hotels: 'Hotels',
+  trains: 'Trains',
+  buses: 'Buses'
+};
+
+function getAirportCode(destination) {
+  const normalized = destination.toLowerCase();
+  if (normalized.includes('dubai')) return 'DXB';
+  if (normalized.includes('ubud') || normalized.includes('bali')) return 'DPS';
+  if (normalized.includes('paris')) return 'CDG';
+  if (normalized.includes('zurich')) return 'ZRH';
+  if (normalized.includes('jaipur')) return 'JAI';
+  if (normalized.includes('alleppey') || normalized.includes('kerala')) return 'COK';
+  if (normalized.includes('shimla')) return 'SLV';
+  if (normalized.includes('bir')) return 'DHM';
+  return 'KUU';
+}
+
+function getBookingOptions(tab, destination) {
+  const airportCode = getAirportCode(destination);
+  const city = destination.replace(' City', '');
+  const international = ['DXB', 'DPS', 'CDG', 'ZRH'].includes(airportCode);
+
+  if (tab === 'flights') {
+    const base = international ? 18000 : 5200;
+    const premium = international ? 32400 : 8400;
+    const budget = international ? 14600 : 3900;
+
+    return [
+      { id: `${tab}-1`, name: `${airportCode === 'DXB' ? 'Emirates' : 'Air India'} Smart Saver`, time: `DEL 09:45 - ${airportCode} 12:05`, price: base, type: `Economy • ${international ? 'Non-stop' : 'Direct'}`, action: 'Select Seats' },
+      { id: `${tab}-2`, name: `${airportCode === 'DXB' ? 'IndiGo Dubai Connect' : 'IndiGo Value Fare'}`, time: `DEL 13:20 - ${airportCode} 16:10`, price: budget, type: 'Economy • 15kg baggage included', action: 'Select Seats' },
+      { id: `${tab}-3`, name: `${airportCode === 'DXB' ? 'Vistara Premium Economy' : 'Vistara Flexi Plus'}`, time: `DEL 21:30 - ${airportCode} 00:20`, price: premium, type: 'Premium Economy • Meal included', action: 'Select Seats' }
+    ];
+  }
+
+  if (tab === 'hotels') {
+    return [
+      { id: `${tab}-1`, name: `The Grand ${city} Resort`, time: 'Check-in 14:00 • 3 nights', price: international ? 28500 : 12500, type: 'Deluxe Room • Breakfast included', action: 'Choose Room' },
+      { id: `${tab}-2`, name: `${city} Central Boutique Stay`, time: 'Check-in 13:00 • Free cancellation', price: international ? 18200 : 7600, type: 'Superior Room • Couple friendly', action: 'Choose Room' },
+      { id: `${tab}-3`, name: `${city} Skyline Premium Suites`, time: 'Check-in 15:00 • Pay at hotel', price: international ? 42600 : 18900, type: 'Suite • Pool and city view', action: 'Choose Room' }
+    ];
+  }
+
+  if (tab === 'trains') {
+    if (international) {
+      return [
+        { id: `${tab}-1`, name: `${city} Airport Rail Link`, time: 'Every 20 min • Fast city transfer', price: 950, type: 'Metro/Rail Pass • Digital QR ticket', action: 'Book Pass' },
+        { id: `${tab}-2`, name: `${city} City Mobility Pass`, time: '24 hour validity', price: 1650, type: 'Unlimited local transit pass', action: 'Book Pass' },
+        { id: `${tab}-3`, name: `${city} Premium Transfer Rail`, time: 'Reserved transfer slot', price: 3200, type: 'First-class airport transfer', action: 'Book Pass' }
+      ];
+    }
+
+    return [
+      { id: `${tab}-1`, name: `${city} Express Chair Car`, time: '06:15 - 13:40', price: 1450, type: 'AC Chair Car • Pantry available', action: 'Select Seats' },
+      { id: `${tab}-2`, name: `${city} Overnight Superfast`, time: '21:10 - 07:45', price: 2200, type: '3AC Sleeper • Bedding included', action: 'Select Seats' },
+      { id: `${tab}-3`, name: `${city} Vista Coach`, time: '08:30 - 15:25', price: 3100, type: 'Executive Chair Car • Scenic route', action: 'Select Seats' }
+    ];
+  }
+
+  return [
+    { id: `${tab}-1`, name: `${city} Luxury Airport Shuttle`, time: '09:00 - 10:30', price: international ? 2200 : 1200, type: 'AC Coach • Luggage support', action: 'Select Seats' },
+    { id: `${tab}-2`, name: `${city} City Sightseeing Coach`, time: '11:30 - 17:00', price: international ? 3600 : 1800, type: 'Guided route • Major attractions', action: 'Select Seats' },
+    { id: `${tab}-3`, name: `${city} Private Group Transfer`, time: 'Flexible pickup', price: international ? 6800 : 3200, type: 'Private van • Doorstep pickup', action: 'Select Seats' }
+  ];
+}
+
 function App() {
+  const initialDestination = useMemo(() => getInitialDestinationState(), []);
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentKey, setCurrentKey] = useState('manali');
+  const [currentKey, setCurrentKey] = useState(initialDestination.currentKey);
+  const [bookingDestination, setBookingDestination] = useState(initialDestination.bookingDestination);
   
   // New Features State
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => storage.get('wanderlust.isLoggedIn', false));
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [bookingTab, setBookingTab] = useState('flights');
   
@@ -43,13 +207,46 @@ function App() {
   const [bookingFlowState, setBookingFlowState] = useState('search'); // 'search', 'results', 'seats', 'checkout', 'success'
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [selectedSeats, setSelectedSeats] = useState([]);
+  const [latestBooking, setLatestBooking] = useState(() => storage.get('wanderlust.latestBooking', null));
+  const [savedBookings, setSavedBookings] = useState(() => storage.get('wanderlust.savedBookings', []));
+  const [bookingError, setBookingError] = useState('');
+  const [isBookingSaving, setIsBookingSaving] = useState(false);
+  const [bookingSearch, setBookingSearch] = useState(() => storage.get('wanderlust.bookingSearch', {
+    from: 'Delhi',
+    departure: '',
+    returnDate: '',
+    passengers: '2 Adults'
+  }));
+  const [traveler, setTraveler] = useState(() => storage.get('wanderlust.traveler', {
+    name: 'Vanisha Singh',
+    email: 'vanisha@example.com',
+    phone: '9876543210'
+  }));
 
   // Packages Filter State
+  const [allPackages, setAllPackages] = useState(packagesData);
   const [regionFilter, setRegionFilter] = useState('All');
   const [budgetFilter, setBudgetFilter] = useState('All');
   const [sortOrder, setSortOrder] = useState('Recommended');
+  const [adminStats, setAdminStats] = useState(null);
+  const [newPackage, setNewPackage] = useState({
+    title: 'Singapore Smart City Escape',
+    region: 'World',
+    budget: 'Middle Class',
+    destinations: 'Singapore, Sentosa',
+    duration: '4N / 5D',
+    priceRaw: 72000
+  });
+  const [aiRequest, setAiRequest] = useState({
+    destination: initialDestination.bookingDestination,
+    days: 4,
+    budget: 80000,
+    style: 'Balanced'
+  });
+  const [aiPlan, setAiPlan] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
-  let filteredPackages = packagesData.filter(pkg => {
+  let filteredPackages = allPackages.filter(pkg => {
     const regionMatch = regionFilter === 'All' || pkg.region === regionFilter;
     const budgetMatch = budgetFilter === 'All' || pkg.budget === budgetFilter;
     return regionMatch && budgetMatch;
@@ -62,34 +259,109 @@ function App() {
   }
 
   const handleBookPackage = (pkg) => {
+    const primaryDestination = pkg.destinations[0];
+    const localDestinationKey = getLocalDestinationKey(primaryDestination);
+
     // Scroll to booking section
     document.getElementById('booking').scrollIntoView({ behavior: 'smooth' });
     setBookingTab('flights'); // default to flights for global packages
-    setSearchQuery(pkg.destinations[0]); // Pretend we are searching this destination
-    setCurrentKey('manali'); // Set a fallback or real destination if mapped
-    // In a real app we would map pkg.id to a real destination key, here we just show the user the booking area
+    setSearchQuery(primaryDestination);
+    setBookingDestination(primaryDestination);
+    if (localDestinationKey) {
+      setCurrentKey(localDestinationKey);
+      setItinerary(travelData[localDestinationKey].itinerary);
+      setSelectedDay(travelData[localDestinationKey].itinerary[0]);
+      storage.set('wanderlust.currentDestination', localDestinationKey);
+    }
   };
 
-  const dummyVehicles = [
-    { id: 1, name: 'Himalayan Express Volvo', time: '18:30 - 08:00', price: 1200, type: 'AC Semi-Sleeper' },
-    { id: 2, name: 'State Transport AC', time: '20:00 - 10:00', price: 850, type: 'AC Seater' },
-    { id: 3, name: 'Private AC Sleeper', time: '21:30 - 09:30', price: 1500, type: 'AC Sleeper' }
-  ];
+  const bookingOptions = useMemo(() => getBookingOptions(bookingTab, bookingDestination), [bookingTab, bookingDestination]);
 
   const handleSearchBooking = () => setBookingFlowState('results');
-  const handleSelectVehicle = (vehicle) => { setSelectedVehicle(vehicle); setBookingFlowState('seats'); setSelectedSeats([]); };
+  const handleSelectVehicle = (vehicle) => {
+    setSelectedVehicle(vehicle);
+    setSelectedSeats(bookingTab === 'hotels' ? ['Deluxe Room'] : []);
+    setBookingFlowState(bookingTab === 'hotels' ? 'checkout' : 'seats');
+  };
   const toggleSeat = (seatNum) => {
     if (selectedSeats.includes(seatNum)) setSelectedSeats(selectedSeats.filter(s => s !== seatNum));
     else setSelectedSeats([...selectedSeats, seatNum]);
   };
   const handleCheckout = () => setBookingFlowState('checkout');
-  const handleConfirm = () => setBookingFlowState('success');
+  const handleConfirm = async () => {
+    setBookingError('');
+    setIsBookingSaving(true);
+
+    const bookingPayload = {
+      vehicleName: selectedVehicle.name,
+      vehicleType: selectedVehicle.type,
+      route: `${bookingSearch.from} to ${bookingDestination}`,
+      transportType: bookingTab,
+      seats: selectedSeats,
+      amount: selectedVehicle.price * selectedSeats.length + 150,
+      search: bookingSearch,
+      traveler,
+      destination: bookingDestination
+    };
+
+    try {
+      const savedBooking = await api.createBooking(bookingPayload);
+      setLatestBooking(savedBooking);
+      setSavedBookings((current) => [savedBooking, ...current.filter((item) => item.id !== savedBooking.id)]);
+      setBookingFlowState('success');
+    } catch (error) {
+      const offlineBooking = {
+        id: `OFF-${Date.now().toString().slice(-6)}`,
+        status: 'OFFLINE_SAVED',
+        paymentStatus: 'PENDING_SYNC',
+        createdAt: new Date().toISOString(),
+        ...bookingPayload
+      };
+      setLatestBooking(offlineBooking);
+      setSavedBookings((current) => [offlineBooking, ...current]);
+      setBookingError(`Backend not reachable, so this booking was saved in the browser. ${error.message}`);
+      setBookingFlowState('success');
+    } finally {
+      setIsBookingSaving(false);
+    }
+  };
   const resetBooking = () => { setBookingFlowState('search'); setSelectedVehicle(null); setSelectedSeats([]); };
+
+  const refreshAdminData = async () => {
+    try {
+      const [packages, stats] = await Promise.all([api.getPackages(), api.getAdminStats()]);
+      setAllPackages(packages);
+      setAdminStats(stats);
+    } catch {
+      setAllPackages(packagesData);
+    }
+  };
+
+  const handleCreatePackage = async (event) => {
+    event.preventDefault();
+    const created = await api.createPackage({
+      ...newPackage,
+      priceRaw: Number(newPackage.priceRaw)
+    });
+    setAllPackages((current) => [created, ...current]);
+    await refreshAdminData();
+  };
+
+  const handleGenerateAiPlan = async (event) => {
+    event.preventDefault();
+    setAiLoading(true);
+    try {
+      const plan = await api.createAiPlan(aiRequest);
+      setAiPlan(plan);
+    } finally {
+      setAiLoading(false);
+    }
+  };
   
   const destData = useMemo(() => travelData[currentKey], [currentKey]);
   
   // State for interactive features
-  const [itinerary, setItinerary] = useState(destData.itinerary);
+  const [itinerary, setItinerary] = useState(() => storage.get('wanderlust.itinerary.manali', travelData.manali.itinerary));
   const [selectedDay, setSelectedDay] = useState(destData.itinerary[0]);
   const [draggedItemIndex, setDraggedItemIndex] = useState(null);
 
@@ -103,11 +375,8 @@ function App() {
   ] : [];
 
   // 2. Trip Wallet
-  const [expenses, setExpenses] = useState([
-    { id: 1, title: 'Flight Tickets', amount: 15000, cat: 'âœˆï¸', by: 'Me' },
-    { id: 2, title: 'Cafe 1947 Lunch', amount: 1200, cat: 'ðŸ”', by: 'Rahul' }
-  ]);
-  const [newExpense, setNewExpense] = useState({ title: '', amount: '', cat: 'ðŸ›ï¸' });
+  const [expenses, setExpenses] = useState(() => storage.get('wanderlust.expenses', defaultExpenses));
+  const [newExpense, setNewExpense] = useState({ title: '', amount: '', cat: 'Shopping' });
   const totalBudget = 50000;
   const spentAmount = expenses.reduce((acc, curr) => acc + Number(curr.amount), 0);
   const progressPercent = Math.min((spentAmount / totalBudget) * 100, 100);
@@ -115,8 +384,8 @@ function App() {
   const handleAddExpense = (e) => {
     e.preventDefault();
     if (!newExpense.title || !newExpense.amount) return;
-    setExpenses([{ id: Date.now(), ...newExpense }, ...expenses]);
-    setNewExpense({ title: '', amount: '', cat: 'ðŸ›ï¸' });
+    setExpenses([{ id: Date.now(), ...newExpense, by: 'Me' }, ...expenses]);
+    setNewExpense({ title: '', amount: '', cat: 'Shopping' });
   };
 
   // 3. Offline Vault
@@ -137,20 +406,88 @@ function App() {
 
   // Sync state when destination changes
   useEffect(() => {
-    setItinerary(destData.itinerary);
-    setSelectedDay(destData.itinerary[0]);
-  }, [destData]);
+    const savedItinerary = storage.get(`wanderlust.itinerary.${currentKey}`, destData.itinerary);
+    setItinerary(savedItinerary);
+    setSelectedDay(savedItinerary[0] || destData.itinerary[0]);
+    storage.set('wanderlust.currentDestination', currentKey);
+  }, [currentKey, destData]);
+
+  useEffect(() => {
+    storage.set(`wanderlust.itinerary.${currentKey}`, itinerary);
+  }, [currentKey, itinerary]);
+
+  useEffect(() => {
+    storage.set('wanderlust.expenses', expenses);
+  }, [expenses]);
+
+  useEffect(() => {
+    storage.set('wanderlust.isLoggedIn', isLoggedIn);
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    storage.set('wanderlust.latestBooking', latestBooking);
+  }, [latestBooking]);
+
+  useEffect(() => {
+    storage.set('wanderlust.savedBookings', savedBookings);
+  }, [savedBookings]);
+
+  useEffect(() => {
+    storage.set('wanderlust.bookingSearch', bookingSearch);
+  }, [bookingSearch]);
+
+  useEffect(() => {
+    storage.set('wanderlust.bookingDestination', bookingDestination);
+    const localDestinationKey = getLocalDestinationKey(bookingDestination);
+    if (localDestinationKey && localDestinationKey !== currentKey) {
+      setCurrentKey(localDestinationKey);
+    }
+  }, [bookingDestination, currentKey]);
+
+  useEffect(() => {
+    storage.set('wanderlust.traveler', traveler);
+  }, [traveler]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    Promise.all([api.getBookings(), api.getPackages(), api.getAdminStats()])
+      .then(([bookings, packages, stats]) => {
+        if (isMounted) {
+          setSavedBookings(bookings);
+          setAllPackages(packages);
+          setAdminStats(stats);
+        }
+      })
+      .catch(() => {
+        // Keep locally saved bookings visible if the API is not running.
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
     const query = searchQuery.toLowerCase();
+    const packageDestination = findPackageDestination(query);
     
     if (query.includes('shimla')) {
       setCurrentKey('shimla');
+      setBookingDestination('Shimla');
     } else if (query.includes('bir')) {
       setCurrentKey('bir');
-    } else {
+      setBookingDestination('Bir Billing');
+    } else if (query.includes('manali')) {
       setCurrentKey('manali');
+      setBookingDestination('Manali');
+    } else if (packageDestination) {
+      const localDestinationKey = destinationKeyMap[packageDestination.toLowerCase()];
+      if (localDestinationKey) setCurrentKey(localDestinationKey);
+      setBookingDestination(packageDestination);
+    } else if (searchQuery.trim()) {
+      setBookingDestination(toTitleCase(searchQuery.trim()));
     }
   };
 
@@ -210,10 +547,13 @@ function App() {
       )}
 
       <nav className="nav container">
-        <div className="nav-brand">Wander<span>lust</span></div>
+        <div className="nav-brand">Voy<span>ara</span></div>
         <div className="nav-links">
           <a href="#packages">Packages</a>
           <a href="#booking">Bookings</a>
+          <a href="#trips">My Trips</a>
+          <a href="#ai-planner">AI Planner</a>
+          <a href="#admin">Admin</a>
           <a href="#explore">Explore</a>
           <a href="#planner">Planner</a>
           <a href="#wallet">Wallet</a>
@@ -221,8 +561,8 @@ function App() {
         </div>
         {isLoggedIn ? (
           <div className="user-profile">
-            <div className="avatar">JD</div>
-            <span style={{ color: 'white', fontWeight: 'bold', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>John Doe</span>
+            <div className="avatar">VS</div>
+            <span style={{ color: 'white', fontWeight: 'bold', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>Vanisha Singh</span>
           </div>
         ) : (
           <button className="btn-primary" onClick={() => setShowLoginModal(true)}>Sign In</button>
@@ -261,10 +601,7 @@ function App() {
                   className={`tab-btn ${bookingTab === tab ? 'active' : ''}`}
                   onClick={() => setBookingTab(tab)}
                 >
-                  {tab === 'flights' && 'âœˆï¸ Flights'}
-                  {tab === 'hotels' && 'ðŸ¨ Hotels'}
-                  {tab === 'trains' && 'ðŸš† Trains'}
-                  {tab === 'buses' && 'ðŸšŒ Buses'}
+                  {bookingTabLabels[tab]}
                 </button>
               ))}
             </div>
@@ -275,26 +612,43 @@ function App() {
                   <div className="form-row">
                     <div className="input-box">
                       <label>FROM</label>
-                      <input type="text" placeholder="Delhi" defaultValue="Delhi" />
+                      <input
+                        type="text"
+                        placeholder="Delhi"
+                        value={bookingSearch.from}
+                        onChange={(e) => setBookingSearch({ ...bookingSearch, from: e.target.value })}
+                      />
                     </div>
-                    <div className="swap-icon">â‡„</div>
+                    <div className="swap-icon">⇄</div>
                     <div className="input-box">
                       <label>TO</label>
-                      <input type="text" placeholder="Destination" value={currentKey.charAt(0).toUpperCase() + currentKey.slice(1)} readOnly />
+                      <input type="text" placeholder="Destination" value={bookingDestination} readOnly />
                     </div>
                     <div className="input-box">
                       <label>DEPARTURE</label>
-                      <input type="date" />
+                      <input
+                        type="date"
+                        value={bookingSearch.departure}
+                        onChange={(e) => setBookingSearch({ ...bookingSearch, departure: e.target.value })}
+                      />
                     </div>
                     {bookingTab === 'flights' && (
                       <div className="input-box">
                         <label>RETURN</label>
-                        <input type="date" />
+                        <input
+                          type="date"
+                          value={bookingSearch.returnDate}
+                          onChange={(e) => setBookingSearch({ ...bookingSearch, returnDate: e.target.value })}
+                        />
                       </div>
                     )}
                     <div className="input-box">
                       <label>PASSENGERS</label>
-                      <input type="text" defaultValue="2 Adults" />
+                      <input
+                        type="text"
+                        value={bookingSearch.passengers}
+                        onChange={(e) => setBookingSearch({ ...bookingSearch, passengers: e.target.value })}
+                      />
                     </div>
                   </div>
                   <button className="search-booking-btn" onClick={handleSearchBooking}>SEARCH</button>
@@ -303,20 +657,20 @@ function App() {
 
               {bookingFlowState === 'results' && (
                 <div className="booking-results" style={{ animation: 'fadeIn 0.3s ease-out' }}>
-                  <h3 style={{ marginBottom: '20px', color: 'var(--secondary)' }}>Available Options</h3>
-                  {dummyVehicles.map(v => (
+                  <h3 style={{ marginBottom: '20px', color: 'var(--secondary)' }}>{bookingTabLabels[bookingTab]} from {bookingSearch.from} to {bookingDestination}</h3>
+                  {bookingOptions.map(v => (
                     <div key={v.id} className="vehicle-card">
                       <div>
                         <h4 style={{ fontSize: '18px', marginBottom: '4px', color: 'var(--secondary)' }}>{v.name}</h4>
-                        <p style={{ color: '#6b7280', fontSize: '14px' }}>{v.type} â€¢ {v.time}</p>
+                        <p style={{ color: '#6b7280', fontSize: '14px' }}>{v.type} • {v.time}</p>
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <h3 style={{ color: 'var(--primary)', marginBottom: '8px', fontSize: '24px' }}>â‚¹{v.price}</h3>
-                        <button className="btn-primary" onClick={() => handleSelectVehicle(v)} style={{ padding: '8px 20px' }}>Select Seats</button>
+                        <h3 style={{ color: 'var(--primary)', marginBottom: '8px', fontSize: '24px' }}>Rs. {v.price.toLocaleString()}</h3>
+                        <button className="btn-primary" onClick={() => handleSelectVehicle(v)} style={{ padding: '8px 20px' }}>{v.action}</button>
                       </div>
                     </div>
                   ))}
-                  <button onClick={() => setBookingFlowState('search')} style={{ marginTop: '20px', background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', textDecoration: 'underline', fontWeight: 'bold' }}>â† Back to Search</button>
+                  <button onClick={() => setBookingFlowState('search')} style={{ marginTop: '20px', background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', textDecoration: 'underline', fontWeight: 'bold' }}>Back to Search</button>
                 </div>
               )}
 
@@ -331,7 +685,7 @@ function App() {
                   </div>
 
                   <div className="bus-layout">
-                    <div className="steering-wheel">ðŸ›ž Driver</div>
+                    <div className="steering-wheel">Driver</div>
                     <div className="seats-grid">
                       {Array.from({ length: 40 }).map((_, i) => {
                         const seatNum = i + 1;
@@ -352,11 +706,11 @@ function App() {
                   </div>
                   
                   <div className="seat-footer">
-                    <button onClick={() => setBookingFlowState('results')} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', textDecoration: 'underline', fontWeight: 'bold' }}>â† Back</button>
+                    <button onClick={() => setBookingFlowState('results')} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', textDecoration: 'underline', fontWeight: 'bold' }}>Back</button>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                       <div style={{ textAlign: 'right' }}>
                         <div style={{ fontSize: '14px', color: '#6b7280' }}>Selected: {selectedSeats.length} seats</div>
-                        <div style={{ fontSize: '20px', fontWeight: 'bold', color: 'var(--secondary)' }}>Total: â‚¹{selectedVehicle.price * selectedSeats.length}</div>
+                        <div style={{ fontSize: '20px', fontWeight: 'bold', color: 'var(--secondary)' }}>Total: Rs. {(selectedVehicle.price * selectedSeats.length).toLocaleString()}</div>
                       </div>
                       <button className="btn-primary" disabled={selectedSeats.length === 0} onClick={handleCheckout} style={{ opacity: selectedSeats.length === 0 ? 0.5 : 1 }}>Proceed</button>
                     </div>
@@ -367,42 +721,71 @@ function App() {
               {bookingFlowState === 'checkout' && (
                 <div className="checkout-view" style={{ animation: 'fadeIn 0.3s ease-out' }}>
                   <h3 style={{ marginBottom: '20px', color: 'var(--secondary)' }}>Review Booking</h3>
-                  <div className="checkout-summary">
-                    <h4>{selectedVehicle.name}</h4>
-                    <p style={{ color: '#6b7280', marginBottom: '12px' }}>{selectedVehicle.time}</p>
-                    <div className="summary-row">
-                      <span>Seats ({selectedSeats.join(', ')})</span>
-                      <span>â‚¹{selectedVehicle.price * selectedSeats.length}</span>
+                  <div className="checkout-grid">
+                    <div className="checkout-summary">
+                      <h4>{selectedVehicle.name}</h4>
+                      <p style={{ color: '#6b7280', marginBottom: '12px' }}>{selectedVehicle.time}</p>
+                      <div className="summary-row">
+                        <span>Route</span>
+                        <span>{bookingSearch.from} to {bookingDestination}</span>
+                      </div>
+                      <div className="summary-row">
+                        <span>Travel date</span>
+                        <span>{bookingSearch.departure || 'Flexible date'}</span>
+                      </div>
+                      <div className="summary-row">
+                        <span>Seats ({selectedSeats.join(', ')})</span>
+                        <span>Rs. {selectedVehicle.price * selectedSeats.length}</span>
+                      </div>
+                      <div className="summary-row">
+                        <span>Taxes & Fees</span>
+                        <span>Rs. 150</span>
+                      </div>
+                      <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '12px 0' }} />
+                      <div className="summary-row total">
+                        <span>Total Amount</span>
+                        <span>Rs. {(selectedVehicle.price * selectedSeats.length) + 150}</span>
+                      </div>
                     </div>
-                    <div className="summary-row">
-                      <span>Taxes & Fees</span>
-                      <span>â‚¹150</span>
-                    </div>
-                    <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '12px 0' }} />
-                    <div className="summary-row total">
-                      <span>Total Amount</span>
-                      <span>â‚¹{(selectedVehicle.price * selectedSeats.length) + 150}</span>
+
+                    <div className="traveler-form">
+                      <h4>Traveler Details</h4>
+                      <div className="form-group">
+                        <label>Full Name</label>
+                        <input value={traveler.name} onChange={(e) => setTraveler({ ...traveler, name: e.target.value })} />
+                      </div>
+                      <div className="form-group">
+                        <label>Email</label>
+                        <input type="email" value={traveler.email} onChange={(e) => setTraveler({ ...traveler, email: e.target.value })} />
+                      </div>
+                      <div className="form-group">
+                        <label>Phone</label>
+                        <input value={traveler.phone} onChange={(e) => setTraveler({ ...traveler, phone: e.target.value })} />
+                      </div>
                     </div>
                   </div>
                   
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '30px' }}>
-                    <button onClick={() => setBookingFlowState('seats')} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', textDecoration: 'underline', fontWeight: 'bold' }}>â† Back to Seats</button>
-                    <button className="btn-primary" onClick={handleConfirm} style={{ background: '#22c55e', padding: '16px 40px', fontSize: '18px' }}>Confirm & Pay securely</button>
+                    <button onClick={() => setBookingFlowState(bookingTab === 'hotels' ? 'results' : 'seats')} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', textDecoration: 'underline', fontWeight: 'bold' }}>Back</button>
+                    <button className="btn-primary" disabled={isBookingSaving} onClick={handleConfirm} style={{ background: '#22c55e', padding: '16px 40px', fontSize: '18px', opacity: isBookingSaving ? 0.65 : 1 }}>
+                      {isBookingSaving ? 'Saving Booking...' : 'Confirm & Pay securely'}
+                    </button>
                   </div>
                 </div>
               )}
 
               {bookingFlowState === 'success' && (
                 <div className="success-view" style={{ textAlign: 'center', padding: '20px', animation: 'fadeIn 0.5s ease-out' }}>
-                  <div style={{ fontSize: '80px', marginBottom: '16px', animation: 'bounce 1s infinite' }}>ðŸŽ‰</div>
+                  <div style={{ fontSize: '80px', marginBottom: '16px', animation: 'bounce 1s infinite' }}>✓</div>
                   <h2 style={{ color: '#22c55e', marginBottom: '8px', fontSize: '32px' }}>Booking Confirmed!</h2>
                   <p style={{ color: '#6b7280', marginBottom: '40px', fontSize: '18px' }}>Your tickets have been successfully generated.</p>
+                  {bookingError && <div className="booking-error">{bookingError}</div>}
                   
                   <div className="ticket-card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', alignItems: 'center' }}>
                       <span style={{ fontSize: '24px', fontWeight: '800', color: 'var(--secondary)' }}>DEL</span>
-                      <span style={{ color: 'var(--primary)', fontSize: '20px' }}>â†’</span>
-                      <span style={{ fontSize: '24px', fontWeight: '800', color: 'var(--secondary)' }}>{currentKey.substring(0, 3).toUpperCase()}</span>
+                      <span style={{ color: 'var(--primary)', fontSize: '20px' }}>→</span>
+                      <span style={{ fontSize: '24px', fontWeight: '800', color: 'var(--secondary)' }}>{getAirportCode(bookingDestination)}</span>
                     </div>
                     <h3 style={{ marginBottom: '4px', fontSize: '20px' }}>{selectedVehicle.name}</h3>
                     <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '24px' }}>{selectedVehicle.time}</p>
@@ -414,7 +797,7 @@ function App() {
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <p className="label">PNR / BOOKING ID</p>
-                        <p className="value" style={{ color: 'var(--primary)' }}>WNDR{Math.floor(10000 + Math.random() * 90000)}</p>
+                        <p className="value" style={{ color: 'var(--primary)' }}>{latestBooking?.id}</p>
                       </div>
                     </div>
                   </div>
@@ -426,9 +809,154 @@ function App() {
           </div>
         </section>
 
+        <section id="trips" className="section" style={{ paddingTop: 0 }}>
+          <div className="trips-header">
+            <div>
+              <h2 className="section-title compact-title">My Trips</h2>
+              <p className="section-note trip-note">Bookings created through the REST backend appear here like a real travel account dashboard.</p>
+            </div>
+            <div className="api-status">Live API connected</div>
+          </div>
+
+          <div className="trips-grid">
+            {savedBookings.length > 0 ? savedBookings.map((booking) => (
+              <div className="trip-card" key={booking.id}>
+                <div className="trip-card-top">
+                  <div>
+                    <span className="trip-status">{booking.status}</span>
+                    <h3>{booking.route}</h3>
+                  </div>
+                  <strong>{booking.id}</strong>
+                </div>
+                <div className="trip-meta-grid">
+                  <div>
+                    <span>Traveler</span>
+                    <strong>{booking.traveler?.name}</strong>
+                  </div>
+                  <div>
+                    <span>Service</span>
+                    <strong>{booking.vehicleName}</strong>
+                  </div>
+                  <div>
+                    <span>Seats</span>
+                    <strong>{booking.seats?.join(', ')}</strong>
+                  </div>
+                  <div>
+                    <span>Total</span>
+                    <strong>Rs. {Number(booking.amount).toLocaleString()}</strong>
+                  </div>
+                </div>
+                <a className="download-ticket" href={api.ticketUrl(booking.id)} target="_blank" rel="noreferrer">
+                  Download PDF Ticket
+                </a>
+              </div>
+            )) : (
+              <div className="empty-trips">
+                <h3>No trips booked yet</h3>
+                <p>Search a journey, select seats, and confirm checkout to create your first backend booking.</p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section id="ai-planner" className="section" style={{ paddingTop: 0 }}>
+          <h2 className="section-title">AI Trip Planner</h2>
+          <p className="section-note">Generate a day-wise plan from destination, budget, days, and travel style.</p>
+
+          <div className="ai-planner-panel">
+            <form className="ai-form" onSubmit={handleGenerateAiPlan}>
+              <div className="form-group">
+                <label>Destination</label>
+                <input value={aiRequest.destination} onChange={(e) => setAiRequest({ ...aiRequest, destination: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label>Days</label>
+                <input type="number" min="1" max="10" value={aiRequest.days} onChange={(e) => setAiRequest({ ...aiRequest, days: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label>Budget</label>
+                <input type="number" value={aiRequest.budget} onChange={(e) => setAiRequest({ ...aiRequest, budget: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label>Style</label>
+                <select className="filter-select" value={aiRequest.style} onChange={(e) => setAiRequest({ ...aiRequest, style: e.target.value })}>
+                  <option>Balanced</option>
+                  <option>Luxury</option>
+                  <option>Budget</option>
+                  <option>Adventure</option>
+                  <option>Family</option>
+                </select>
+              </div>
+              <button className="btn-primary" type="submit">{aiLoading ? 'Generating...' : 'Generate Plan'}</button>
+            </form>
+
+            <div className="ai-result">
+              {aiPlan ? (
+                <>
+                  <h3>{aiPlan.title}</h3>
+                  <p>{aiPlan.summary}</p>
+                  <div className="ai-days">
+                    {aiPlan.days.map((day) => (
+                      <div className="ai-day" key={day.day}>
+                        <strong>{day.title}</strong>
+                        <span>{day.plan}</span>
+                        <small>{day.tip}</small>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="empty-trips">
+                  <h3>Your smart itinerary will appear here</h3>
+                  <p>Try Dubai, Kerala, Paris, Bali, Rajasthan, Manali, Shimla, or Bir Billing.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section id="admin" className="section" style={{ paddingTop: 0 }}>
+          <h2 className="section-title">Admin Dashboard</h2>
+          <p className="section-note">Manage packages and see booking data from the backend database file.</p>
+
+          <div className="admin-grid">
+            <div className="admin-stats">
+              <div className="admin-stat"><span>Total Bookings</span><strong>{adminStats?.bookings ?? savedBookings.length}</strong></div>
+              <div className="admin-stat"><span>Revenue</span><strong>Rs. {Number(adminStats?.revenue || 0).toLocaleString()}</strong></div>
+              <div className="admin-stat"><span>Custom Packages</span><strong>{adminStats?.customPackages ?? 0}</strong></div>
+              <div className="admin-stat"><span>Booked Destinations</span><strong>{adminStats?.destinations ?? 0}</strong></div>
+            </div>
+
+            <form className="admin-form" onSubmit={handleCreatePackage}>
+              <h3>Add New Package</h3>
+              <div className="form-group">
+                <label>Package Title</label>
+                <input value={newPackage.title} onChange={(e) => setNewPackage({ ...newPackage, title: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label>Destinations</label>
+                <input value={newPackage.destinations} onChange={(e) => setNewPackage({ ...newPackage, destinations: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label>Price</label>
+                <input type="number" value={newPackage.priceRaw} onChange={(e) => setNewPackage({ ...newPackage, priceRaw: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label>Region</label>
+                <select className="filter-select" value={newPackage.region} onChange={(e) => setNewPackage({ ...newPackage, region: e.target.value })}>
+                  <option>India</option>
+                  <option>World</option>
+                </select>
+              </div>
+              <button className="btn-primary" type="submit">Add Package</button>
+            </form>
+          </div>
+        </section>
+
         {/* Dynamic Explore Section */}
         <section id="explore" className="section">
-          <h2 className="section-title">Must Visit in {currentKey.charAt(0).toUpperCase() + currentKey.slice(1)}</h2>
+          <h2 className="section-title">Must Visit in {getDestinationDisplayName(currentKey)}</h2>
+          <p className="section-note">Featured itinerary details are available for Manali, Shimla, and Bir Billing. Package booking supports every destination listed in the travel packages.</p>
           <div className="cards-grid">
             {destData.exploreCards.map(place => (
               <div className="place-card" key={place.id}>
@@ -549,6 +1077,7 @@ function App() {
         {/* Planner Dashboard - Interactive */}
         <section id="planner" className="section" style={{ paddingTop: 0 }}>
           <h2 className="section-title">Your Custom Itinerary (Drag to Reorder)</h2>
+          <p className="section-note">Showing planner for {getDestinationDisplayName(currentKey)}. Your itinerary order, wallet expenses, and latest booking are saved in this browser.</p>
           
           <div className="planner-panel">
             {/* Draggable Sidebar */}
@@ -744,10 +1273,10 @@ function App() {
                 <div className="form-group">
                   <label>Category</label>
                   <select className="filter-select" value={newExpense.cat} onChange={e => setNewExpense({...newExpense, cat: e.target.value})} style={{ width: '100%', background: '#f9fafb' }}>
-                    <option value="ðŸ”">ðŸ” Food & Dining</option>
-                    <option value="ðŸš•">ðŸš• Transport</option>
-                    <option value="ðŸ¨">ðŸ¨ Accommodation</option>
-                    <option value="ðŸ›ï¸">ðŸ›ï¸ Shopping</option>
+                    <option value="Food">Food & Dining</option>
+                    <option value="Transport">Transport</option>
+                    <option value="Accommodation">Accommodation</option>
+                    <option value="Shopping">Shopping</option>
                   </select>
                 </div>
                 <button type="submit" className="btn-primary" style={{ marginTop: '10px', width: '100%' }}>Split & Save</button>
@@ -790,6 +1319,11 @@ function App() {
                   <h3 style={{ fontSize: '24px', color: 'var(--secondary)' }}>ðŸ” Your Secure Documents</h3>
                   <button onClick={() => {setIsVaultLocked(true); setPinInput('');}} style={{ border: 'none', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer', padding: '8px 16px', borderRadius: '8px', background: '#fef2f2' }}>ðŸ”’ Lock Vault</button>
                 </div>
+                {!latestBooking && (
+                  <div className="vault-empty-note">
+                    Complete a booking to save a real demo ticket here. A sample boarding pass is shown for the vault preview.
+                  </div>
+                )}
 
                 <div className="digital-ticket">
                   <div className="ticket-left">
@@ -799,21 +1333,21 @@ function App() {
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
                       <div style={{ fontSize: '32px', fontWeight: '800' }}>DEL</div>
-                      <div style={{ color: '#9ca3af', fontSize: '24px' }}>âœˆï¸</div>
-                      <div style={{ fontSize: '32px', fontWeight: '800' }}>{currentKey.substring(0, 3).toUpperCase()}</div>
+                      <div style={{ color: '#9ca3af', fontSize: '24px' }}>→</div>
+                      <div style={{ fontSize: '32px', fontWeight: '800' }}>{getAirportCode(bookingDestination)}</div>
                     </div>
                     <div style={{ display: 'flex', gap: '40px' }}>
                       <div>
                         <div style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 'bold' }}>PASSENGER</div>
-                        <div style={{ fontWeight: '700' }}>John Doe</div>
+                        <div style={{ fontWeight: '700' }}>{latestBooking?.traveler?.name || traveler.name || 'Vanisha Singh'}</div>
                       </div>
                       <div>
                         <div style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 'bold' }}>SEAT</div>
-                        <div style={{ fontWeight: '700' }}>14A</div>
+                        <div style={{ fontWeight: '700' }}>{latestBooking?.seats?.join(', ') || '14A'}</div>
                       </div>
                       <div>
-                        <div style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 'bold' }}>FLIGHT</div>
-                        <div style={{ fontWeight: '700' }}>WA-802</div>
+                        <div style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 'bold' }}>BOOKING</div>
+                        <div style={{ fontWeight: '700' }}>{latestBooking?.id || 'WA-802'}</div>
                       </div>
                     </div>
                   </div>
@@ -826,8 +1360,8 @@ function App() {
                 <div className="digital-ticket" style={{ borderLeft: '6px solid var(--accent)' }}>
                   <div className="ticket-left">
                     <span style={{ fontWeight: '800', color: 'var(--secondary)', fontSize: '18px', display: 'block', marginBottom: '16px' }}>HOTEL VOUCHER</span>
-                    <h3 style={{ marginBottom: '8px' }}>The Grand {currentKey.charAt(0).toUpperCase() + currentKey.slice(1)} Resort</h3>
-                    <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '16px' }}>Check-in: 14:00 â€¢ 3 Nights â€¢ Deluxe Room</p>
+                    <h3 style={{ marginBottom: '8px' }}>The Grand {bookingDestination} Resort</h3>
+                    <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '16px' }}>Check-in: 14:00 • 3 Nights • Deluxe Room</p>
                     <div style={{ display: 'inline-block', background: '#d1fae5', color: '#10b981', padding: '6px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold' }}>PAID IN FULL</div>
                   </div>
                 </div>
