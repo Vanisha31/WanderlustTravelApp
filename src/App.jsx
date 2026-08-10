@@ -131,6 +131,47 @@ const bookingTabLabels = {
   buses: 'Buses'
 };
 
+const trustStats = [
+  { value: '50+', label: 'Curated destinations' },
+  { value: '24/7', label: 'Travel assistance' },
+  { value: '4.9/5', label: 'Guest experience' },
+  { value: 'Secure', label: 'Checkout and PDF tickets' }
+];
+
+const luxuryBadges = ['Premium Stay', 'Private Transfer', 'Visa Assistance', 'Breakfast Included', 'Top Rated'];
+
+const testimonials = [
+  {
+    name: 'Aarohi Mehta',
+    trip: 'Dubai luxury escape',
+    text: 'Voyara made the first-time Dubai plan feel clear, premium, and easy to book from one place.'
+  },
+  {
+    name: 'Riya Sharma',
+    trip: 'Kerala family retreat',
+    text: 'The stay, transfers, famous places, and day-wise plan were all visible before booking. It felt very reliable.'
+  },
+  {
+    name: 'Kabir Anand',
+    trip: 'Paris and Zurich',
+    text: 'The package cards and ticket flow looked polished, like a real travel product rather than a college demo.'
+  }
+];
+
+const travelCompanions = [
+  { value: 'Solo', title: 'Solo', detail: 'Safe stays, flexible timing, compact budget' },
+  { value: 'Couple', title: 'Couple', detail: 'Romantic hotels, private transfers, photo spots' },
+  { value: 'Family', title: 'Family', detail: 'Family rooms, easy routes, kid-friendly stops' },
+  { value: 'Friends', title: 'Friends', detail: 'Group stays, nightlife, adventure picks' }
+];
+
+const premiumAddOns = [
+  { id: 'airport-transfer', label: 'Airport transfer', price: 1800 },
+  { id: 'travel-insurance', label: 'Travel insurance', price: 900 },
+  { id: 'guided-tour', label: 'Guided city tour', price: 2500 },
+  { id: 'visa-support', label: 'Visa support', price: 3200 }
+];
+
 function getAirportCode(destination) {
   const normalized = destination.toLowerCase();
   if (normalized.includes('dubai')) return 'DXB';
@@ -217,6 +258,12 @@ function App() {
     returnDate: '',
     passengers: '2 Adults'
   }));
+  const [bookingPreferences, setBookingPreferences] = useState(() => storage.get('wanderlust.bookingPreferences', {
+    companion: 'Family',
+    cabinClass: 'Premium Economy',
+    hotelCategory: '5 Star Luxury',
+    addOns: ['airport-transfer']
+  }));
   const [traveler, setTraveler] = useState(() => storage.get('wanderlust.traveler', {
     name: 'Vanisha Singh',
     email: 'vanisha@example.com',
@@ -276,6 +323,18 @@ function App() {
   };
 
   const bookingOptions = useMemo(() => getBookingOptions(bookingTab, bookingDestination), [bookingTab, bookingDestination]);
+  const selectedAddOnsTotal = premiumAddOns
+    .filter((addOn) => bookingPreferences.addOns.includes(addOn.id))
+    .reduce((total, addOn) => total + addOn.price, 0);
+
+  const toggleAddOn = (addOnId) => {
+    setBookingPreferences((current) => ({
+      ...current,
+      addOns: current.addOns.includes(addOnId)
+        ? current.addOns.filter((id) => id !== addOnId)
+        : [...current.addOns, addOnId]
+    }));
+  };
 
   const handleSearchBooking = () => setBookingFlowState('results');
   const handleSelectVehicle = (vehicle) => {
@@ -298,8 +357,9 @@ function App() {
       route: `${bookingSearch.from} to ${bookingDestination}`,
       transportType: bookingTab,
       seats: selectedSeats,
-      amount: selectedVehicle.price * selectedSeats.length + 150,
+      amount: selectedVehicle.price * selectedSeats.length + selectedAddOnsTotal + 150,
       search: bookingSearch,
+      preferences: bookingPreferences,
       traveler,
       destination: bookingDestination
     };
@@ -435,6 +495,10 @@ function App() {
   useEffect(() => {
     storage.set('wanderlust.bookingSearch', bookingSearch);
   }, [bookingSearch]);
+
+  useEffect(() => {
+    storage.set('wanderlust.bookingPreferences', bookingPreferences);
+  }, [bookingPreferences]);
 
   useEffect(() => {
     storage.set('wanderlust.bookingDestination', bookingDestination);
@@ -573,8 +637,14 @@ function App() {
       <header className="hero" style={{ background: `url('${destData.bgUrl}') center/cover no-repeat` }}>
         <div className="hero-overlay"></div>
         <div className="hero-content">
+          <div className="hero-kicker">Curated luxury journeys by Voyara</div>
           <h1 className="hero-title">{destData.title}</h1>
           <p className="hero-subtitle">{destData.subtitle}</p>
+          <div className="luxury-badge-row hero-badges">
+            {luxuryBadges.slice(0, 4).map((badge) => (
+              <span className="luxury-badge" key={badge}>{badge}</span>
+            ))}
+          </div>
           
           <form className="search-bar" onSubmit={handleSearch}>
             <input 
@@ -590,6 +660,37 @@ function App() {
       </header>
 
       <main className="container">
+        <section className="luxury-trust-section">
+          <div className="trust-grid">
+            {trustStats.map((stat) => (
+              <div className="trust-card" key={stat.label}>
+                <strong>{stat.value}</strong>
+                <span>{stat.label}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="luxury-intro-section">
+          <div className="luxury-intro-copy">
+            <span className="eyebrow">Premium travel desk</span>
+            <h2>Book like a real travel platform, plan like a personal concierge.</h2>
+            <p>
+              Choose flights, premium hotels, transfers, local experiences, and a travel style for solo, couple, family, or friends trips.
+            </p>
+          </div>
+          <div className="luxury-mini-panel">
+            <div className="mini-panel-top">
+              <span>Popular today</span>
+              <strong>{bookingDestination}</strong>
+            </div>
+            <div className="luxury-badge-row">
+              {luxuryBadges.map((badge) => (
+                <span className="luxury-badge dark" key={badge}>{badge}</span>
+              ))}
+            </div>
+          </div>
+        </section>
         
         {/* MakeMyTrip Style Booking Dashboard */}
         <section id="booking" className="section" style={{ paddingTop: '40px' }}>
@@ -651,18 +752,94 @@ function App() {
                       />
                     </div>
                   </div>
+                  <div className="trip-style-panel">
+                    <div className="trip-style-header">
+                      <div>
+                        <span className="eyebrow">Traveller type</span>
+                        <h3>Who is this trip for?</h3>
+                      </div>
+                      <p>We will show more useful hotels, flights, and add-ons for this travel style.</p>
+                    </div>
+                    <div className="companion-grid">
+                      {travelCompanions.map((item) => (
+                        <button
+                          type="button"
+                          key={item.value}
+                          className={`companion-card ${bookingPreferences.companion === item.value ? 'active' : ''}`}
+                          onClick={() => setBookingPreferences({ ...bookingPreferences, companion: item.value })}
+                        >
+                          <strong>{item.title}</strong>
+                          <span>{item.detail}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="premium-controls">
+                      <label>
+                        <span>{bookingTab === 'hotels' ? 'Hotel category' : 'Flight class'}</span>
+                        <select
+                          className="filter-select"
+                          value={bookingTab === 'hotels' ? bookingPreferences.hotelCategory : bookingPreferences.cabinClass}
+                          onChange={(e) => {
+                            const key = bookingTab === 'hotels' ? 'hotelCategory' : 'cabinClass';
+                            setBookingPreferences({ ...bookingPreferences, [key]: e.target.value });
+                          }}
+                        >
+                          {bookingTab === 'hotels' ? (
+                            <>
+                              <option>5 Star Luxury</option>
+                              <option>Boutique Premium</option>
+                              <option>Family Resort</option>
+                              <option>Budget Comfort</option>
+                            </>
+                          ) : (
+                            <>
+                              <option>Economy</option>
+                              <option>Premium Economy</option>
+                              <option>Business Class</option>
+                              <option>First Class</option>
+                            </>
+                          )}
+                        </select>
+                      </label>
+                      <div className="add-ons-group">
+                        <span>Add services</span>
+                        <div className="add-on-chips">
+                          {premiumAddOns.map((addOn) => (
+                            <button
+                              type="button"
+                              key={addOn.id}
+                              className={`add-on-chip ${bookingPreferences.addOns.includes(addOn.id) ? 'selected' : ''}`}
+                              onClick={() => toggleAddOn(addOn.id)}
+                            >
+                              {addOn.label} + Rs. {addOn.price.toLocaleString()}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   <button className="search-booking-btn" onClick={handleSearchBooking}>SEARCH</button>
                 </div>
               )}
 
               {bookingFlowState === 'results' && (
                 <div className="booking-results" style={{ animation: 'fadeIn 0.3s ease-out' }}>
-                  <h3 style={{ marginBottom: '20px', color: 'var(--secondary)' }}>{bookingTabLabels[bookingTab]} from {bookingSearch.from} to {bookingDestination}</h3>
+                  <h3 style={{ marginBottom: '8px', color: 'var(--secondary)' }}>{bookingTabLabels[bookingTab]} from {bookingSearch.from} to {bookingDestination}</h3>
+                  <p className="results-context">
+                    {bookingPreferences.companion} trip - {bookingTab === 'hotels' ? bookingPreferences.hotelCategory : bookingPreferences.cabinClass} - Add-ons Rs. {selectedAddOnsTotal.toLocaleString()}
+                  </p>
                   {bookingOptions.map(v => (
                     <div key={v.id} className="vehicle-card">
                       <div>
                         <h4 style={{ fontSize: '18px', marginBottom: '4px', color: 'var(--secondary)' }}>{v.name}</h4>
                         <p style={{ color: '#6b7280', fontSize: '14px' }}>{v.type} • {v.time}</p>
+                        <div className="result-perks">
+                          <span>{bookingPreferences.companion} friendly</span>
+                          <span>{bookingTab === 'hotels' ? bookingPreferences.hotelCategory : bookingPreferences.cabinClass}</span>
+                          {bookingPreferences.addOns.slice(0, 2).map((id) => (
+                            <span key={id}>{premiumAddOns.find((addOn) => addOn.id === id)?.label}</span>
+                          ))}
+                        </div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <h3 style={{ color: 'var(--primary)', marginBottom: '8px', fontSize: '24px' }}>Rs. {v.price.toLocaleString()}</h3>
@@ -734,8 +911,20 @@ function App() {
                         <span>{bookingSearch.departure || 'Flexible date'}</span>
                       </div>
                       <div className="summary-row">
+                        <span>Trip type</span>
+                        <span>{bookingPreferences.companion}</span>
+                      </div>
+                      <div className="summary-row">
+                        <span>{bookingTab === 'hotels' ? 'Hotel category' : 'Travel class'}</span>
+                        <span>{bookingTab === 'hotels' ? bookingPreferences.hotelCategory : bookingPreferences.cabinClass}</span>
+                      </div>
+                      <div className="summary-row">
                         <span>Seats ({selectedSeats.join(', ')})</span>
                         <span>Rs. {selectedVehicle.price * selectedSeats.length}</span>
+                      </div>
+                      <div className="summary-row">
+                        <span>Premium add-ons</span>
+                        <span>Rs. {selectedAddOnsTotal.toLocaleString()}</span>
                       </div>
                       <div className="summary-row">
                         <span>Taxes & Fees</span>
@@ -744,7 +933,7 @@ function App() {
                       <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '12px 0' }} />
                       <div className="summary-row total">
                         <span>Total Amount</span>
-                        <span>Rs. {(selectedVehicle.price * selectedSeats.length) + 150}</span>
+                        <span>Rs. {(selectedVehicle.price * selectedSeats.length + selectedAddOnsTotal + 150).toLocaleString()}</span>
                       </div>
                     </div>
 
@@ -794,6 +983,10 @@ function App() {
                       <div>
                         <p className="label">SEATS</p>
                         <p className="value">{selectedSeats.join(', ')}</p>
+                      </div>
+                      <div>
+                        <p className="label">TRIP TYPE</p>
+                        <p className="value">{bookingPreferences.companion}</p>
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <p className="label">PNR / BOOKING ID</p>
@@ -1054,6 +1247,28 @@ function App() {
                 <p style={{ color: '#6b7280' }}>Try adjusting your filters to see more amazing destinations.</p>
               </div>
             )}
+          </div>
+        </section>
+
+        <section className="section luxury-proof-section" style={{ paddingTop: 0 }}>
+          <div className="proof-copy">
+            <span className="eyebrow">Trusted by travellers</span>
+            <h2 className="section-title compact-title">Luxury confidence before every booking</h2>
+            <p className="section-note trip-note">
+              These trust signals make the app feel more like a public travel platform where people can compare, choose, and book confidently.
+            </p>
+          </div>
+          <div className="testimonial-grid">
+            {testimonials.map((review) => (
+              <article className="testimonial-card" key={review.name}>
+                <div className="stars">★★★★★</div>
+                <p>{review.text}</p>
+                <div>
+                  <strong>{review.name}</strong>
+                  <span>{review.trip}</span>
+                </div>
+              </article>
+            ))}
           </div>
         </section>
 

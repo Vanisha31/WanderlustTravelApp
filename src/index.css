@@ -34,8 +34,29 @@ body { background-color: var(--bg-color); color: var(--text-dark); overflow-x: h
 .hero { height: 100vh; width: 100%; background: url('/hero-bg.png') center/cover no-repeat; position: relative; display: flex; align-items: center; justify-content: center; }
 .hero-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.6) 100%); }
 .hero-content { position: relative; z-index: 10; text-align: center; color: white; max-width: 800px; padding: 0 20px; animation: slideUp 1s ease-out forwards; }
+.hero-kicker { display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px; color: #ffd98a; font-size: 13px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
 .hero-title { font-size: 64px; font-weight: 800; line-height: 1.1; margin-bottom: 24px; text-shadow: 0 4px 12px rgba(0,0,0,0.1); }
 .hero-subtitle { font-size: 20px; font-weight: 300; margin-bottom: 40px; opacity: 0.9; }
+.hero-badges { justify-content: center; margin: -18px auto 28px; }
+
+/* Luxury trust polish */
+.luxury-badge-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.luxury-badge { display: inline-flex; align-items: center; width: max-content; max-width: 100%; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.28); color: white; border-radius: 999px; padding: 8px 12px; font-size: 12px; font-weight: 800; backdrop-filter: blur(8px); }
+.luxury-badge.dark { background: #fff7ed; border-color: #fed7aa; color: #9a3412; }
+.luxury-trust-section { position: relative; z-index: 25; margin-top: -46px; }
+.trust-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.trust-card { background: white; border: 1px solid #e5e7eb; border-radius: 18px; padding: 18px; box-shadow: 0 18px 45px rgba(15, 23, 42, 0.09); }
+.trust-card strong { display: block; color: var(--secondary); font-size: 26px; font-weight: 800; margin-bottom: 4px; }
+.trust-card span { color: #6b7280; font-size: 13px; font-weight: 700; }
+.luxury-intro-section { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 24px; align-items: stretch; padding: 44px 0 18px; }
+.luxury-intro-copy, .luxury-mini-panel { background: white; border: 1px solid #e5e7eb; border-radius: 24px; padding: 28px; box-shadow: 0 14px 36px rgba(15, 23, 42, 0.06); }
+.luxury-intro-copy { background: linear-gradient(135deg, #ffffff 0%, #fff8ed 100%); }
+.eyebrow { display: inline-flex; color: var(--primary); font-size: 12px; font-weight: 900; letter-spacing: 1.6px; text-transform: uppercase; margin-bottom: 10px; }
+.luxury-intro-copy h2 { color: var(--secondary); font-size: 34px; line-height: 1.08; margin-bottom: 14px; letter-spacing: 0; }
+.luxury-intro-copy p, .trip-style-header p { color: #6b7280; line-height: 1.6; }
+.luxury-mini-panel { display: flex; flex-direction: column; justify-content: space-between; gap: 22px; background: linear-gradient(135deg, #023047 0%, #111827 100%); color: white; }
+.mini-panel-top span { color: #ffd98a; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+.mini-panel-top strong { display: block; font-size: 30px; margin-top: 8px; }
 
 /* Search Bar */
 .search-bar { display: flex; background: white; padding: 8px; border-radius: 50px; box-shadow: 0 12px 32px rgba(0,0,0,0.2); margin: 0 auto; max-width: 600px; }
@@ -148,6 +169,25 @@ body { background-color: var(--bg-color); color: var(--text-dark); overflow-x: h
 
 .search-booking-btn { background: var(--secondary); color: white; border: none; padding: 16px 40px; border-radius: 50px; font-size: 18px; font-weight: 700; cursor: pointer; margin: 30px auto 0; display: block; box-shadow: 0 10px 20px rgba(2, 48, 71, 0.2); transition: all 0.3s; }
 .search-booking-btn:hover { background: var(--primary); transform: translateY(-2px); box-shadow: 0 10px 20px rgba(251, 133, 0, 0.3); }
+.trip-style-panel { margin-top: 18px; background: linear-gradient(135deg, #fffaf3 0%, #f8fafc 100%); border: 1px solid #fde6c8; border-radius: 20px; padding: 22px; }
+.trip-style-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; margin-bottom: 18px; }
+.trip-style-header h3 { color: var(--secondary); font-size: 24px; margin: 0; }
+.trip-style-header p { max-width: 420px; margin: 0; font-size: 14px; }
+.companion-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.companion-card { text-align: left; background: white; border: 1px solid #e5e7eb; border-radius: 16px; padding: 16px; cursor: pointer; transition: all 0.2s; min-height: 120px; }
+.companion-card:hover { transform: translateY(-2px); border-color: var(--primary); box-shadow: 0 10px 24px rgba(251, 133, 0, 0.12); }
+.companion-card.active { border-color: var(--primary); background: #fff7ed; box-shadow: 0 10px 24px rgba(251, 133, 0, 0.14); }
+.companion-card strong { display: block; color: var(--secondary); font-size: 18px; margin-bottom: 8px; }
+.companion-card span { color: #6b7280; font-size: 13px; line-height: 1.4; }
+.premium-controls { display: grid; grid-template-columns: 260px 1fr; gap: 18px; align-items: start; margin-top: 18px; }
+.premium-controls label, .add-ons-group { display: flex; flex-direction: column; gap: 10px; }
+.premium-controls label span, .add-ons-group > span { color: var(--secondary); font-size: 13px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; }
+.add-on-chips { display: flex; flex-wrap: wrap; gap: 10px; }
+.add-on-chip { background: white; border: 1px solid #e5e7eb; color: #374151; border-radius: 999px; padding: 10px 12px; font-weight: 800; cursor: pointer; transition: all 0.2s; }
+.add-on-chip:hover, .add-on-chip.selected { border-color: var(--primary); background: #fff7ed; color: #9a3412; }
+.results-context { color: #6b7280; margin-bottom: 18px; font-weight: 700; }
+.result-perks { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.result-perks span { background: #f0f9ff; color: #0369a1; border: 1px solid #bae6fd; border-radius: 999px; padding: 5px 9px; font-size: 12px; font-weight: 800; }
 
 @keyframes slideUp { 0% { transform: translateY(40px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
 /* --- BOOKING WIZARD STYLES --- */
@@ -241,6 +281,18 @@ body { background-color: var(--bg-color); color: var(--text-dark); overflow-x: h
 .empty-trips h3 { color: var(--secondary); margin-bottom: 8px; }
 .download-ticket { display: inline-flex; justify-content: center; margin-top: 18px; background: var(--secondary); color: white; text-decoration: none; padding: 10px 16px; border-radius: 999px; font-weight: 800; font-size: 14px; }
 
+/* Testimonials */
+.luxury-proof-section { display: grid; grid-template-columns: 0.85fr 1.15fr; gap: 24px; align-items: start; }
+.proof-copy { background: #023047; color: white; border-radius: 24px; padding: 28px; min-height: 100%; box-shadow: 0 14px 36px rgba(15, 23, 42, 0.12); }
+.proof-copy .section-title { color: white; margin-bottom: 12px; }
+.proof-copy .section-note { color: rgba(255,255,255,0.75); }
+.testimonial-grid { display: grid; gap: 16px; }
+.testimonial-card { background: white; border: 1px solid #e5e7eb; border-radius: 20px; padding: 22px; box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06); }
+.testimonial-card p { color: #374151; line-height: 1.6; margin: 12px 0 18px; }
+.testimonial-card strong { display: block; color: var(--secondary); margin-bottom: 4px; }
+.testimonial-card span { color: #6b7280; font-size: 13px; font-weight: 700; }
+.stars { color: #d97706; letter-spacing: 2px; font-size: 14px; }
+
 /* AI Planner and Admin */
 .ai-planner-panel, .admin-grid { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 24px; align-items: start; }
 .ai-form, .ai-result, .admin-form, .admin-stats { background: white; border: 1px solid #e5e7eb; border-radius: 20px; padding: 24px; box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06); }
@@ -317,12 +369,20 @@ body { background-color: var(--bg-color); color: var(--text-dark); overflow-x: h
   .hero { min-height: 760px; height: auto; padding: 130px 0 150px; }
   .hero-title { font-size: 42px; }
   .hero-subtitle { font-size: 18px; }
+  .hero-badges { margin-top: -20px; }
   .search-bar { flex-direction: column; border-radius: 24px; gap: 8px; }
   .search-input, .search-btn { border-radius: 18px; width: 100%; }
+  .luxury-trust-section { margin-top: -72px; }
+  .trust-grid { grid-template-columns: repeat(2, 1fr); }
+  .luxury-intro-section, .luxury-proof-section { grid-template-columns: 1fr; }
+  .luxury-intro-copy h2 { font-size: 28px; }
   .booking-dashboard { margin-top: -120px; border-radius: 18px; }
   .booking-tabs { display: grid; grid-template-columns: repeat(2, 1fr); }
   .tab-btn { padding: 14px 10px; font-size: 14px; }
   .booking-form-area { padding: 18px; }
+  .trip-style-header { flex-direction: column; }
+  .companion-grid { grid-template-columns: repeat(2, 1fr); }
+  .premium-controls { grid-template-columns: 1fr; }
   .checkout-grid { grid-template-columns: 1fr; }
   .planner-panel, .assistant-grid { flex-direction: column; } 
   .assistant-grid { grid-template-columns: 1fr; }
@@ -349,6 +409,11 @@ body { background-color: var(--bg-color); color: var(--text-dark); overflow-x: h
   .section { padding: 44px 0; }
   .section-title { font-size: 26px; }
   .hero-title { font-size: 34px; }
+  .hero-kicker { font-size: 11px; letter-spacing: 1.3px; }
+  .luxury-badge { font-size: 11px; padding: 7px 10px; }
+  .trust-grid, .companion-grid { grid-template-columns: 1fr; }
+  .trust-card { padding: 15px; }
+  .trip-style-panel { padding: 16px; }
   .btn-primary, .search-booking-btn { width: 100%; text-align: center; }
   .pin-btn { width: 58px; height: 58px; }
   .vault-content { padding: 24px; }
