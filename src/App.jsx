@@ -127,6 +127,8 @@ function getInitialDestinationState() {
 const bookingTabLabels = {
   flights: 'Flights',
   hotels: 'Hotels',
+  homestays: 'Homestays',
+  packages: 'Holiday Packages',
   trains: 'Trains',
   buses: 'Buses'
 };
@@ -172,6 +174,28 @@ const premiumAddOns = [
   { id: 'visa-support', label: 'Visa support', price: 3200 }
 ];
 
+const couponOffers = [
+  { code: 'WANDERLUXURY', title: '15% off luxury stays', detail: 'Use on 5 star hotels, resorts, and premium suites.' },
+  { code: 'FAMILYFIRST', title: 'Free extra bed support', detail: 'Best for family rooms and multi-room bookings.' },
+  { code: 'SOLOSAFE', title: 'Solo safety bundle', detail: 'Includes verified stay picks and group activity suggestions.' },
+  { code: 'FRIENDSTRIP', title: 'Group booking saver', detail: 'Split expenses and unlock local experience add-ons.' }
+];
+
+function isStayBooking(tab) {
+  return ['hotels', 'homestays', 'packages'].includes(tab);
+}
+
+function getTravelerTags(companion) {
+  const tags = {
+    Solo: ['Solo Favorite', 'Safety Rated', 'Group-Join Activities', 'Budget Hostels'],
+    Couple: ['Couple-Friendly Verified', 'Private Transfer', 'Romantic Stay', 'Safe Policies'],
+    Family: ['Family Suites Available', 'Extra Bed Option', 'Child-Friendly Hotel', 'Multi-Room Layout'],
+    Friends: ['Friends-Friendly Stay', 'Cost Splitter Ready', 'Group Rooms', 'Nightlife Nearby']
+  };
+
+  return tags[companion] || tags.Family;
+}
+
 function getAirportCode(destination) {
   const normalized = destination.toLowerCase();
   if (normalized.includes('dubai')) return 'DXB';
@@ -207,6 +231,22 @@ function getBookingOptions(tab, destination) {
       { id: `${tab}-1`, name: `The Grand ${city} Resort`, time: 'Check-in 14:00 • 3 nights', price: international ? 28500 : 12500, type: 'Deluxe Room • Breakfast included', action: 'Choose Room' },
       { id: `${tab}-2`, name: `${city} Central Boutique Stay`, time: 'Check-in 13:00 • Free cancellation', price: international ? 18200 : 7600, type: 'Superior Room • Couple friendly', action: 'Choose Room' },
       { id: `${tab}-3`, name: `${city} Skyline Premium Suites`, time: 'Check-in 15:00 • Pay at hotel', price: international ? 42600 : 18900, type: 'Suite • Pool and city view', action: 'Choose Room' }
+    ];
+  }
+
+  if (tab === 'homestays') {
+    return [
+      { id: `${tab}-1`, name: `${city} Heritage Homestay`, time: '2 rooms • Hosted local breakfast', price: international ? 16500 : 6200, type: 'Verified host • Family and couple friendly', action: 'Reserve Stay' },
+      { id: `${tab}-2`, name: `${city} Scenic Villa Stay`, time: 'Entire villa • Flexible check-in', price: international ? 24800 : 11800, type: 'Group stay • Kitchen and lounge access', action: 'Reserve Stay' },
+      { id: `${tab}-3`, name: `${city} Budget Social Hostel`, time: 'Dorm/private room • Group activities', price: international ? 6400 : 2100, type: 'Solo favorite • Safety rated', action: 'Reserve Stay' }
+    ];
+  }
+
+  if (tab === 'packages') {
+    return [
+      { id: `${tab}-1`, name: `${city} Complete Holiday Bundle`, time: 'Flight + hotel + transfer + sightseeing', price: international ? 68900 : 28900, type: 'Most booked • Itinerary included', action: 'Review Package' },
+      { id: `${tab}-2`, name: `${city} Family Comfort Package`, time: 'Multi-room stay • Easy routes • Extra bed', price: international ? 82400 : 36500, type: 'Family suites • Child-friendly plan', action: 'Review Package' },
+      { id: `${tab}-3`, name: `${city} Luxury Concierge Package`, time: 'Premium flights • 5 star stay • private guide', price: international ? 148000 : 76000, type: 'Luxury tier • Visa support available', action: 'Review Package' }
     ];
   }
 
@@ -263,6 +303,12 @@ function App() {
     cabinClass: 'Premium Economy',
     hotelCategory: '5 Star Luxury',
     addOns: ['airport-transfer']
+  }));
+  const [paxDetails, setPaxDetails] = useState(() => storage.get('wanderlust.paxDetails', {
+    adults: 2,
+    children: 0,
+    infants: 0,
+    rooms: 1
   }));
   const [traveler, setTraveler] = useState(() => storage.get('wanderlust.traveler', {
     name: 'Vanisha Singh',
@@ -326,6 +372,10 @@ function App() {
   const selectedAddOnsTotal = premiumAddOns
     .filter((addOn) => bookingPreferences.addOns.includes(addOn.id))
     .reduce((total, addOn) => total + addOn.price, 0);
+  const selectedBookingUnits = selectedVehicle
+    ? (isStayBooking(bookingTab) ? paxDetails.rooms : selectedSeats.length)
+    : 0;
+  const selectedBaseAmount = selectedVehicle ? selectedVehicle.price * selectedBookingUnits : 0;
 
   const toggleAddOn = (addOnId) => {
     setBookingPreferences((current) => ({
@@ -339,8 +389,8 @@ function App() {
   const handleSearchBooking = () => setBookingFlowState('results');
   const handleSelectVehicle = (vehicle) => {
     setSelectedVehicle(vehicle);
-    setSelectedSeats(bookingTab === 'hotels' ? ['Deluxe Room'] : []);
-    setBookingFlowState(bookingTab === 'hotels' ? 'checkout' : 'seats');
+    setSelectedSeats(isStayBooking(bookingTab) ? [`${paxDetails.rooms} Room${paxDetails.rooms > 1 ? 's' : ''}`] : []);
+    setBookingFlowState(isStayBooking(bookingTab) ? 'checkout' : 'seats');
   };
   const toggleSeat = (seatNum) => {
     if (selectedSeats.includes(seatNum)) setSelectedSeats(selectedSeats.filter(s => s !== seatNum));
@@ -357,7 +407,7 @@ function App() {
       route: `${bookingSearch.from} to ${bookingDestination}`,
       transportType: bookingTab,
       seats: selectedSeats,
-      amount: selectedVehicle.price * selectedSeats.length + selectedAddOnsTotal + 150,
+      amount: selectedBaseAmount + selectedAddOnsTotal + 150,
       search: bookingSearch,
       preferences: bookingPreferences,
       traveler,
@@ -437,9 +487,14 @@ function App() {
   // 2. Trip Wallet
   const [expenses, setExpenses] = useState(() => storage.get('wanderlust.expenses', defaultExpenses));
   const [newExpense, setNewExpense] = useState({ title: '', amount: '', cat: 'Shopping' });
+  const [splitter, setSplitter] = useState(() => storage.get('wanderlust.splitter', {
+    people: 4,
+    paidBy: 'Vanisha'
+  }));
   const totalBudget = 50000;
   const spentAmount = expenses.reduce((acc, curr) => acc + Number(curr.amount), 0);
   const progressPercent = Math.min((spentAmount / totalBudget) * 100, 100);
+  const perPersonSplit = splitter.people > 0 ? Math.ceil(spentAmount / splitter.people) : spentAmount;
 
   const handleAddExpense = (e) => {
     e.preventDefault();
@@ -499,6 +554,14 @@ function App() {
   useEffect(() => {
     storage.set('wanderlust.bookingPreferences', bookingPreferences);
   }, [bookingPreferences]);
+
+  useEffect(() => {
+    storage.set('wanderlust.paxDetails', paxDetails);
+  }, [paxDetails]);
+
+  useEffect(() => {
+    storage.set('wanderlust.splitter', splitter);
+  }, [splitter]);
 
   useEffect(() => {
     storage.set('wanderlust.bookingDestination', bookingDestination);
@@ -691,6 +754,25 @@ function App() {
             </div>
           </div>
         </section>
+
+        <section className="offers-section" aria-label="Offers and coupons">
+          <div className="offers-header">
+            <div>
+              <span className="eyebrow">Live style offers</span>
+              <h2>Offers and coupons</h2>
+            </div>
+            <p>Commercial booking platforms show deals early, so these cards make Voyara feel more market-ready.</p>
+          </div>
+          <div className="offers-grid">
+            {couponOffers.map((offer) => (
+              <article className="offer-card" key={offer.code}>
+                <span>{offer.code}</span>
+                <h3>{offer.title}</h3>
+                <p>{offer.detail}</p>
+              </article>
+            ))}
+          </div>
+        </section>
         
         {/* MakeMyTrip Style Booking Dashboard */}
         <section id="booking" className="section" style={{ paddingTop: '40px' }}>
@@ -710,6 +792,10 @@ function App() {
             <div className="booking-form-area">
               {bookingFlowState === 'search' && (
                 <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
+                  <div className="service-switcher-note">
+                    <strong>Compare and book</strong>
+                    <span>Flights, hotels, homestays, holiday packages, trains, and buses from one search panel.</span>
+                  </div>
                   <div className="form-row">
                     <div className="input-box">
                       <label>FROM</label>
@@ -747,10 +833,41 @@ function App() {
                       <label>PASSENGERS</label>
                       <input
                         type="text"
-                        value={bookingSearch.passengers}
+                        value={`${paxDetails.adults} Adults, ${paxDetails.children} Children, ${paxDetails.infants} Infants, ${paxDetails.rooms} Room${paxDetails.rooms > 1 ? 's' : ''}`}
                         onChange={(e) => setBookingSearch({ ...bookingSearch, passengers: e.target.value })}
+                        readOnly
                       />
                     </div>
+                  </div>
+                  <div className="pax-selector">
+                    {[
+                      { key: 'adults', label: 'Adults', hint: '12+ years', min: 1 },
+                      { key: 'children', label: 'Children', hint: '2-11 years', min: 0 },
+                      { key: 'infants', label: 'Infants', hint: 'Below 2 years', min: 0 },
+                      { key: 'rooms', label: 'Rooms', hint: 'Hotel rooms', min: 1 }
+                    ].map((item) => (
+                      <div className="pax-row" key={item.key}>
+                        <div>
+                          <strong>{item.label}</strong>
+                          <span>{item.hint}</span>
+                        </div>
+                        <div className="stepper">
+                          <button
+                            type="button"
+                            onClick={() => setPaxDetails({ ...paxDetails, [item.key]: Math.max(item.min, paxDetails[item.key] - 1) })}
+                          >
+                            -
+                          </button>
+                          <span>{paxDetails[item.key]}</span>
+                          <button
+                            type="button"
+                            onClick={() => setPaxDetails({ ...paxDetails, [item.key]: paxDetails[item.key] + 1 })}
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                   <div className="trip-style-panel">
                     <div className="trip-style-header">
@@ -775,16 +892,16 @@ function App() {
                     </div>
                     <div className="premium-controls">
                       <label>
-                        <span>{bookingTab === 'hotels' ? 'Hotel category' : 'Flight class'}</span>
+                        <span>{isStayBooking(bookingTab) ? 'Stay category' : 'Flight class'}</span>
                         <select
                           className="filter-select"
-                          value={bookingTab === 'hotels' ? bookingPreferences.hotelCategory : bookingPreferences.cabinClass}
+                          value={isStayBooking(bookingTab) ? bookingPreferences.hotelCategory : bookingPreferences.cabinClass}
                           onChange={(e) => {
-                            const key = bookingTab === 'hotels' ? 'hotelCategory' : 'cabinClass';
+                            const key = isStayBooking(bookingTab) ? 'hotelCategory' : 'cabinClass';
                             setBookingPreferences({ ...bookingPreferences, [key]: e.target.value });
                           }}
                         >
-                          {bookingTab === 'hotels' ? (
+                          {isStayBooking(bookingTab) ? (
                             <>
                               <option>5 Star Luxury</option>
                               <option>Boutique Premium</option>
@@ -826,7 +943,7 @@ function App() {
                 <div className="booking-results" style={{ animation: 'fadeIn 0.3s ease-out' }}>
                   <h3 style={{ marginBottom: '8px', color: 'var(--secondary)' }}>{bookingTabLabels[bookingTab]} from {bookingSearch.from} to {bookingDestination}</h3>
                   <p className="results-context">
-                    {bookingPreferences.companion} trip - {bookingTab === 'hotels' ? bookingPreferences.hotelCategory : bookingPreferences.cabinClass} - Add-ons Rs. {selectedAddOnsTotal.toLocaleString()}
+                    {bookingPreferences.companion} trip - {paxDetails.adults + paxDetails.children + paxDetails.infants} travellers - {paxDetails.rooms} room{paxDetails.rooms > 1 ? 's' : ''} - Add-ons Rs. {selectedAddOnsTotal.toLocaleString()}
                   </p>
                   {bookingOptions.map(v => (
                     <div key={v.id} className="vehicle-card">
@@ -834,8 +951,10 @@ function App() {
                         <h4 style={{ fontSize: '18px', marginBottom: '4px', color: 'var(--secondary)' }}>{v.name}</h4>
                         <p style={{ color: '#6b7280', fontSize: '14px' }}>{v.type} • {v.time}</p>
                         <div className="result-perks">
-                          <span>{bookingPreferences.companion} friendly</span>
-                          <span>{bookingTab === 'hotels' ? bookingPreferences.hotelCategory : bookingPreferences.cabinClass}</span>
+                          {getTravelerTags(bookingPreferences.companion).map((tag) => (
+                            <span key={tag}>{tag}</span>
+                          ))}
+                          <span>{isStayBooking(bookingTab) ? bookingPreferences.hotelCategory : bookingPreferences.cabinClass}</span>
                           {bookingPreferences.addOns.slice(0, 2).map((id) => (
                             <span key={id}>{premiumAddOns.find((addOn) => addOn.id === id)?.label}</span>
                           ))}
@@ -915,12 +1034,12 @@ function App() {
                         <span>{bookingPreferences.companion}</span>
                       </div>
                       <div className="summary-row">
-                        <span>{bookingTab === 'hotels' ? 'Hotel category' : 'Travel class'}</span>
-                        <span>{bookingTab === 'hotels' ? bookingPreferences.hotelCategory : bookingPreferences.cabinClass}</span>
+                        <span>{isStayBooking(bookingTab) ? 'Stay category' : 'Travel class'}</span>
+                        <span>{isStayBooking(bookingTab) ? bookingPreferences.hotelCategory : bookingPreferences.cabinClass}</span>
                       </div>
                       <div className="summary-row">
-                        <span>Seats ({selectedSeats.join(', ')})</span>
-                        <span>Rs. {selectedVehicle.price * selectedSeats.length}</span>
+                        <span>{isStayBooking(bookingTab) ? `Rooms (${paxDetails.rooms})` : `Seats (${selectedSeats.join(', ')})`}</span>
+                        <span>Rs. {selectedBaseAmount.toLocaleString()}</span>
                       </div>
                       <div className="summary-row">
                         <span>Premium add-ons</span>
@@ -933,7 +1052,7 @@ function App() {
                       <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '12px 0' }} />
                       <div className="summary-row total">
                         <span>Total Amount</span>
-                        <span>Rs. {(selectedVehicle.price * selectedSeats.length + selectedAddOnsTotal + 150).toLocaleString()}</span>
+                        <span>Rs. {(selectedBaseAmount + selectedAddOnsTotal + 150).toLocaleString()}</span>
                       </div>
                     </div>
 
@@ -955,7 +1074,7 @@ function App() {
                   </div>
                   
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '30px' }}>
-                    <button onClick={() => setBookingFlowState(bookingTab === 'hotels' ? 'results' : 'seats')} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', textDecoration: 'underline', fontWeight: 'bold' }}>Back</button>
+                    <button onClick={() => setBookingFlowState(isStayBooking(bookingTab) ? 'results' : 'seats')} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', textDecoration: 'underline', fontWeight: 'bold' }}>Back</button>
                     <button className="btn-primary" disabled={isBookingSaving} onClick={handleConfirm} style={{ background: '#22c55e', padding: '16px 40px', fontSize: '18px', opacity: isBookingSaving ? 0.65 : 1 }}>
                       {isBookingSaving ? 'Saving Booking...' : 'Confirm & Pay securely'}
                     </button>
@@ -1211,6 +1330,14 @@ function App() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                     <span style={{ fontSize: '12px', fontWeight: 'bold', color: pkg.budget.includes('Luxury') ? '#8b5cf6' : '#10b981', background: pkg.budget.includes('Luxury') ? '#ede9fe' : '#d1fae5', padding: '4px 8px', borderRadius: '8px' }}>{pkg.budget}</span>
                     <span className="package-duration">{pkg.duration}</span>
+                  </div>
+                  <div className="package-audience-tags">
+                    {(pkg.budget.includes('Luxury')
+                      ? ['Couple-Friendly Verified', 'Family Suites Available', 'Private Transfer']
+                      : ['Solo Favorite', 'Friends-Friendly Stay', 'Budget Comfort']
+                    ).map((tag) => (
+                      <span key={tag}>{tag}</span>
+                    ))}
                   </div>
                   <h3 className="package-title">{pkg.title}</h3>
                   
@@ -1476,6 +1603,28 @@ function App() {
 
             <div className="expense-form">
               <h4>+ Add New Expense</h4>
+              <div className="splitter-card">
+                <div>
+                  <span>Cost splitter</span>
+                  <strong>Rs. {perPersonSplit.toLocaleString()} / person</strong>
+                </div>
+                <label>
+                  People
+                  <input
+                    type="number"
+                    min="1"
+                    value={splitter.people}
+                    onChange={(e) => setSplitter({ ...splitter, people: Number(e.target.value) || 1 })}
+                  />
+                </label>
+                <label>
+                  Paid by
+                  <input
+                    value={splitter.paidBy}
+                    onChange={(e) => setSplitter({ ...splitter, paidBy: e.target.value })}
+                  />
+                </label>
+              </div>
               <form onSubmit={handleAddExpense} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div className="form-group">
                   <label>Expense Title</label>
