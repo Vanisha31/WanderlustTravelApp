@@ -181,6 +181,57 @@ const couponOffers = [
   { code: 'FRIENDSTRIP', title: 'Group booking saver', detail: 'Split expenses and unlock local experience add-ons.' }
 ];
 
+const recommendedHotels = [
+  {
+    name: 'The Oberoi Udaivilas',
+    city: 'Udaipur',
+    rating: '5.0',
+    price: 28500,
+    tag: 'Luxury Palace Stay',
+    img: 'https://images.unsplash.com/photo-1582719508461-905c673771fd?q=80&w=700&auto=format&fit=crop'
+  },
+  {
+    name: 'Atlantis The Palm',
+    city: 'Dubai',
+    rating: '4.9',
+    price: 42600,
+    tag: 'Family Resort',
+    img: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?q=80&w=700&auto=format&fit=crop'
+  },
+  {
+    name: 'Marari Beach Resort',
+    city: 'Kerala',
+    rating: '4.8',
+    price: 14800,
+    tag: 'Couple Friendly',
+    img: 'https://images.unsplash.com/photo-1540541338287-41700207dee6?q=80&w=700&auto=format&fit=crop'
+  },
+  {
+    name: 'Paris Boutique Grand',
+    city: 'Paris',
+    rating: '4.9',
+    price: 33800,
+    tag: 'Romantic Stay',
+    img: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=700&auto=format&fit=crop'
+  }
+];
+
+const popularDomesticRoutes = [
+  { city: 'Mumbai', price: 11566, img: 'https://images.unsplash.com/photo-1567157577867-05ccb1388e66?q=80&w=500&auto=format&fit=crop' },
+  { city: 'Bangalore', price: 15964, img: 'https://images.unsplash.com/photo-1596176530529-78163a4f7af2?q=80&w=500&auto=format&fit=crop' },
+  { city: 'Goa', price: 12539, img: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?q=80&w=500&auto=format&fit=crop' },
+  { city: 'Jaipur', price: 9178, img: 'https://images.unsplash.com/photo-1603262110263-fb0112e7cc33?q=80&w=500&auto=format&fit=crop' },
+  { city: 'Kerala', price: 14250, img: 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?q=80&w=500&auto=format&fit=crop' }
+];
+
+const popularInternationalRoutes = [
+  { city: 'Dubai', price: 28650, img: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?q=80&w=500&auto=format&fit=crop' },
+  { city: 'Paris', price: 48900, img: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?q=80&w=500&auto=format&fit=crop' },
+  { city: 'Bali', price: 39200, img: 'https://images.unsplash.com/photo-1537996194471-e657df975ab4?q=80&w=500&auto=format&fit=crop' },
+  { city: 'Zurich', price: 52700, img: 'https://images.unsplash.com/photo-1515488764276-beab7607c1e6?q=80&w=500&auto=format&fit=crop' },
+  { city: 'Singapore', price: 33400, img: 'https://images.unsplash.com/photo-1525625293386-3f8f99389edd?q=80&w=500&auto=format&fit=crop' }
+];
+
 function isStayBooking(tab) {
   return ['hotels', 'homestays', 'packages'].includes(tab);
 }
@@ -778,7 +829,7 @@ function App() {
         <section id="booking" className="section" style={{ paddingTop: '40px' }}>
           <div className="booking-dashboard">
             <div className="booking-tabs">
-              {['flights', 'hotels', 'trains', 'buses'].map(tab => (
+              {['flights', 'hotels', 'homestays', 'packages', 'trains', 'buses'].map(tab => (
                 <button 
                   key={tab} 
                   className={`tab-btn ${bookingTab === tab ? 'active' : ''}`}
@@ -1117,6 +1168,90 @@ function App() {
                   <button className="btn-primary" onClick={resetBooking} style={{ marginTop: '40px', background: 'var(--secondary)' }}>Done / Book Another</button>
                 </div>
               )}
+            </div>
+          </div>
+        </section>
+
+        <section className="marketplace-section" aria-label="Recommended hotels and popular routes">
+          <div className="marketplace-block">
+            <div className="marketplace-heading">
+              <div>
+                <span className="eyebrow">Recommended stays</span>
+                <h2>Hotels guests love</h2>
+              </div>
+              <button className="market-link" type="button">View all hotels</button>
+            </div>
+            <div className="hotel-rail">
+              {recommendedHotels.map((hotel) => (
+                <article className="hotel-card" key={hotel.name}>
+                  <div className="hotel-image" style={{ backgroundImage: `url('${hotel.img}')` }}>
+                    <span>{hotel.tag}</span>
+                  </div>
+                  <div className="hotel-content">
+                    <div>
+                      <h3>{hotel.name}</h3>
+                      <p>{hotel.city}</p>
+                    </div>
+                    <div className="hotel-price">
+                      <span>Star {hotel.rating}</span>
+                      <strong>Rs. {hotel.price.toLocaleString()}</strong>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+
+          <div className="marketplace-block">
+            <div className="marketplace-heading">
+              <div>
+                <span className="eyebrow">Popular from Delhi</span>
+                <h2>Domestic and international routes</h2>
+              </div>
+              <button className="market-link" type="button">See all locations</button>
+            </div>
+            <div className="route-rails">
+              <div className="route-group">
+                <h3>Domestic</h3>
+                <div className="route-grid">
+                  {popularDomesticRoutes.map((route) => (
+                    <button
+                      type="button"
+                      className="route-card"
+                      key={route.city}
+                      style={{ backgroundImage: `linear-gradient(to top, rgba(0,0,0,.74), rgba(0,0,0,.12)), url('${route.img}')` }}
+                      onClick={() => {
+                        setSearchQuery(route.city);
+                        setBookingDestination(route.city);
+                      }}
+                    >
+                      <strong>{route.city}</strong>
+                      <span>Starting from Rs. {route.price.toLocaleString()}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="route-group">
+                <h3>International</h3>
+                <div className="route-grid">
+                  {popularInternationalRoutes.map((route) => (
+                    <button
+                      type="button"
+                      className="route-card"
+                      key={route.city}
+                      style={{ backgroundImage: `linear-gradient(to top, rgba(0,0,0,.74), rgba(0,0,0,.12)), url('${route.img}')` }}
+                      onClick={() => {
+                        setSearchQuery(route.city);
+                        setBookingDestination(route.city);
+                      }}
+                    >
+                      <strong>{route.city}</strong>
+                      <span>Starting from Rs. {route.price.toLocaleString()}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </section>

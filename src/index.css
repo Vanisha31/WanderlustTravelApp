@@ -287,6 +287,30 @@ body { background-color: var(--bg-color); color: var(--text-dark); overflow-x: h
 .offer-card h3 { color: var(--secondary); font-size: 18px; margin-bottom: 8px; }
 .offer-card p { color: #6b7280; line-height: 1.45; font-size: 13px; }
 
+/* Marketplace rails */
+.marketplace-section { padding: 0 0 48px; display: grid; gap: 24px; }
+.marketplace-block { background: white; border: 1px solid #e5e7eb; border-radius: 24px; padding: 28px; box-shadow: 0 16px 36px rgba(15, 23, 42, 0.07); }
+.marketplace-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 20px; }
+.marketplace-heading h2 { color: var(--secondary); font-size: 30px; line-height: 1.1; }
+.market-link { border: none; background: #eff6ff; color: #0369a1; border-radius: 999px; padding: 10px 14px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+.hotel-rail { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.hotel-card { border: 1px solid #e5e7eb; border-radius: 18px; overflow: hidden; background: #fff; box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05); }
+.hotel-image { height: 160px; background-size: cover; background-position: center; position: relative; }
+.hotel-image span { position: absolute; left: 12px; top: 12px; background: rgba(2,48,71,.82); color: white; padding: 6px 10px; border-radius: 999px; font-size: 11px; font-weight: 800; }
+.hotel-content { padding: 16px; display: flex; justify-content: space-between; gap: 12px; align-items: flex-end; }
+.hotel-content h3 { color: var(--secondary); font-size: 18px; line-height: 1.2; margin-bottom: 5px; }
+.hotel-content p { color: #2563eb; font-weight: 700; }
+.hotel-price { text-align: right; flex: 0 0 auto; }
+.hotel-price span { display: block; color: #d97706; font-size: 13px; font-weight: 800; margin-bottom: 4px; }
+.hotel-price strong { color: #111827; font-size: 20px; }
+.route-rails { display: grid; gap: 22px; }
+.route-group h3 { color: var(--secondary); font-size: 18px; margin-bottom: 12px; }
+.route-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+.route-card { min-height: 170px; border: none; border-radius: 18px; background-size: cover; background-position: center; color: white; padding: 16px; text-align: left; display: flex; flex-direction: column; justify-content: flex-end; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; overflow: hidden; }
+.route-card:hover { transform: translateY(-3px); box-shadow: 0 14px 28px rgba(15, 23, 42, 0.18); }
+.route-card strong { font-size: 22px; line-height: 1.1; margin-bottom: 8px; }
+.route-card span { color: rgba(255,255,255,.86); font-size: 13px; font-weight: 700; }
+
 /* My Trips */
 .trips-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
 .compact-title { text-align: left; margin-bottom: 8px; }
@@ -404,8 +428,11 @@ body { background-color: var(--bg-color); color: var(--text-dark); overflow-x: h
   .luxury-trust-section { margin-top: -72px; }
   .trust-grid { grid-template-columns: repeat(2, 1fr); }
   .offers-grid { grid-template-columns: repeat(2, 1fr); }
+  .hotel-rail { grid-template-columns: repeat(2, 1fr); }
+  .route-grid { grid-template-columns: repeat(2, 1fr); }
   .offers-header, .service-switcher-note { flex-direction: column; align-items: flex-start; }
   .offers-header p, .service-switcher-note span { text-align: left; }
+  .marketplace-heading { align-items: flex-start; flex-direction: column; }
   .luxury-intro-section, .luxury-proof-section { grid-template-columns: 1fr; }
   .luxury-intro-copy h2 { font-size: 28px; }
   .booking-dashboard { margin-top: -120px; border-radius: 18px; }
@@ -444,9 +471,12 @@ body { background-color: var(--bg-color); color: var(--text-dark); overflow-x: h
   .hero-title { font-size: 34px; }
   .hero-kicker { font-size: 11px; letter-spacing: 1.3px; }
   .luxury-badge { font-size: 11px; padding: 7px 10px; }
-  .trust-grid, .companion-grid, .pax-selector, .offers-grid { grid-template-columns: 1fr; }
+  .trust-grid, .companion-grid, .pax-selector, .offers-grid, .hotel-rail, .route-grid { grid-template-columns: 1fr; }
   .trust-card { padding: 15px; }
   .trip-style-panel { padding: 16px; }
+  .marketplace-block { padding: 18px; }
+  .hotel-content { flex-direction: column; align-items: flex-start; }
+  .hotel-price { text-align: left; }
   .btn-primary, .search-booking-btn { width: 100%; text-align: center; }
   .pin-btn { width: 58px; height: 58px; }
   .vault-content { padding: 24px; }
