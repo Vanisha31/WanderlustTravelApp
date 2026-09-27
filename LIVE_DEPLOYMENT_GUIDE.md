@@ -1,12 +1,14 @@
 # Voyara Live Deployment Guide
 
-This project now has:
+Voyara now supports:
 
 - React + Vite frontend
-- Node.js REST backend
-- Booking API
-- My Trips dashboard
-- Local JSON booking storage for portfolio demo
+- Vercel serverless REST API
+- PostgreSQL persistence through `DATABASE_URL`
+- Register/login with hashed passwords and signed auth tokens
+- User-specific bookings in My Trips
+- Protected admin stats and package creation
+- PDF travel ticket generation
 
 ## Local Run
 
@@ -21,15 +23,26 @@ Open:
 - Backend: `http://localhost:4000/api/health`
 - Bookings API: `http://localhost:4000/api/bookings`
 
-## GitHub Push
+Without `DATABASE_URL`, the local server uses `server/data/db.json` as a fallback.
 
-```bash
-git add .
-git commit -m "Add Voyara backend and booking dashboard"
-git push
+## Real PostgreSQL Setup
+
+Create a free PostgreSQL database on Neon or Supabase, then set:
+
+```text
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/voyara
+JWT_SECRET=replace-with-a-long-random-secret
+ADMIN_EMAIL=vanisha@example.com
+ADMIN_PASSWORD=vanisha123
 ```
 
-## Vercel Frontend Deployment
+The backend creates these tables automatically:
+
+- `users`
+- `packages`
+- `bookings`
+
+## Vercel Deployment
 
 1. Push this project to GitHub.
 2. Open Vercel and import the GitHub repository.
@@ -37,37 +50,26 @@ git push
    - Framework Preset: `Vite`
    - Build Command: `npm run build`
    - Output Directory: `dist`
-4. Add this Vercel environment variable after backend deployment:
+4. Add the PostgreSQL/auth environment variables in Vercel.
+5. Redeploy.
+
+## Admin Login
+
+Use the configured admin account:
 
 ```text
-VITE_API_BASE_URL=https://YOUR-BACKEND-URL/api
+Email: vanisha@example.com
+Password: vanisha123
 ```
 
-## Backend Deployment
+Change these values in production through `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
 
-Vercel is excellent for the frontend. For this Node backend, the easiest student-friendly deployment is Render or Railway.
+## Interview Talking Points
 
-### Render
-
-1. Push this project to GitHub.
-2. Create a new Render Web Service.
-3. Connect the GitHub repo.
-4. Use:
-   - Build Command: `npm install`
-   - Start Command: `npm run dev:server`
-5. After Render gives you a backend URL, add it in Vercel:
-
-```text
-VITE_API_BASE_URL=https://your-render-service.onrender.com/api
-```
-
-## Important For Real Users
-
-The current backend stores bookings in `server/data/db.json`, which is good for local demo and portfolio proof.
-
-For real public users, use a hosted database:
-
-- PostgreSQL: Neon or Supabase
-- MongoDB: MongoDB Atlas
-
-Then update the backend to save bookings in that database instead of the JSON file.
+- JWT-style token authentication
+- Password hashing with Node.js crypto
+- PostgreSQL schema for users, packages, and bookings
+- User-specific booking history
+- Protected admin APIs
+- Vercel deployment with serverless API routes
+- JSON fallback for easy local development

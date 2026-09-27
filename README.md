@@ -2,14 +2,18 @@
 
 Voyara is a full-stack React + Vite travel booking app for exploring destinations, comparing packages, planning itineraries, tracking trip budgets, and booking travel in one polished interface.
 
-The project is designed as a portfolio-ready travel platform. It includes an interactive frontend, Leaflet maps, browser persistence, realistic booking screens, and a Node.js REST backend for bookings, admin data, AI-style trip plans, and PDF tickets.
+The project is designed as a portfolio-ready travel platform. It includes an interactive frontend, Leaflet maps, account login, user-specific bookings, realistic booking screens, and a Node.js REST backend for bookings, admin data, AI-style trip plans, PostgreSQL persistence, and PDF tickets.
 
 ## Features
 
 - Destination search for Manali, Shimla, Bir Billing, Dubai, Kerala, Bali, Rajasthan, Paris, and Switzerland
 - Expanded famous-place suggestions for first-time travelers
 - Travel package cards with region, budget, and price sorting filters
-- Booking flow for flights, hotels, trains, and buses
+- Booking flow for flights, hotels, homestays, holiday packages, trains, and buses
+- Register/login flow with hashed passwords and signed auth tokens
+- User-specific My Trips dashboard
+- PostgreSQL-ready backend with automatic table creation for users, packages, and bookings
+- Protected admin APIs for package creation and platform statistics
 - Destination-aware results such as Dubai flights, Kerala stays, Bali routes, and Paris/Zurich travel options
 - Node.js REST backend for packages, bookings, admin stats, AI-style plans, and ticket downloads
 - Traveler details form and My Trips dashboard backed by API data
@@ -28,6 +32,7 @@ The project is designed as a portfolio-ready travel platform. It includes an int
 - React
 - Vite
 - Node.js REST API
+- PostgreSQL
 - Leaflet
 - React Leaflet
 - CSS
@@ -46,6 +51,17 @@ This starts both:
 
 The Vite frontend proxies `/api` requests to the local backend.
 
+For local PostgreSQL persistence, copy `.env.example` to `.env` and set:
+
+```text
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/voyara
+JWT_SECRET=replace-with-a-long-random-secret
+ADMIN_EMAIL=vanisha@example.com
+ADMIN_PASSWORD=vanisha123
+```
+
+If `DATABASE_URL` is not configured, the backend uses `server/data/db.json` as a local fallback so the app remains easy to run.
+
 ## Production Build
 
 ```bash
@@ -55,7 +71,7 @@ npm run preview
 
 ## Deploy
 
-The frontend is suitable for Vercel. The backend can run on a Node host such as Render, Railway, or a Vercel serverless/database setup.
+The frontend and serverless API are suitable for Vercel. For permanent live bookings, add a hosted PostgreSQL database such as Neon or Supabase and set `DATABASE_URL` in Vercel.
 
 1. Push this folder to GitHub.
 2. Import the GitHub repository in Vercel.
@@ -63,18 +79,19 @@ The frontend is suitable for Vercel. The backend can run on a Node host such as 
    - Framework Preset: `Vite`
    - Build Command: `npm run build`
    - Output Directory: `dist`
-4. Deploy the backend separately and set this environment variable in Vercel:
+4. Add these environment variables in Vercel for real persistence:
 
 ```text
-VITE_API_BASE_URL=https://YOUR-BACKEND-URL/api
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/voyara
+JWT_SECRET=replace-with-a-long-random-secret
+ADMIN_EMAIL=vanisha@example.com
+ADMIN_PASSWORD=vanisha123
 ```
 
 ## Notes
 
-The app uses travel catalog data from `src/mockData.js`. Bookings and custom admin packages are saved through the local Node REST backend into `server/data/db.json` for the portfolio MVP.
-
-For real public use, connect the backend to a hosted database such as PostgreSQL on Neon/Supabase or MongoDB Atlas.
+The app uses travel catalog data from `src/mockData.js`. Bookings, users, and admin-created packages are saved in PostgreSQL when `DATABASE_URL` is configured. JSON storage remains only as a development fallback.
 
 ## Resume Summary
 
-Built Voyara, a full-stack React + Vite travel booking platform with destination discovery, package filtering, REST APIs, AI-style itinerary generation, transport booking, seat selection, downloadable PDF tickets, admin package controls, Leaflet itinerary maps, and persistent trip data.
+Built Voyara, a full-stack React + Vite travel booking platform with destination discovery, package filtering, JWT-style authentication, PostgreSQL-ready REST APIs, user-specific bookings, AI-style itinerary generation, transport booking, seat selection, downloadable PDF tickets, protected admin controls, Leaflet itinerary maps, and persistent trip data.

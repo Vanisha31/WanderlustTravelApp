@@ -4,7 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './index.css';
 import { travelData, packagesData } from './mockData';
-import { api } from './api';
+import { api, getAuthToken, setAuthToken } from './api';
 
 // Fix for default Leaflet markers in Vite
 delete L.Icon.Default.prototype._getIconUrl;
@@ -331,8 +331,17 @@ function App() {
   const [bookingDestination, setBookingDestination] = useState(initialDestination.bookingDestination);
   
   // New Features State
-  const [isLoggedIn, setIsLoggedIn] = useState(() => storage.get('wanderlust.isLoggedIn', false));
+  const [currentUser, setCurrentUser] = useState(() => storage.get('wanderlust.currentUser', null));
+  const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(getAuthToken() || storage.get('wanderlust.isLoggedIn', false)));
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [authMode, setAuthMode] = useState('login');
+  const [authForm, setAuthForm] = useState({
+    name: 'Vanisha Singh',
+    email: 'vanisha@example.com',
+    password: 'vanisha123'
+  });
+  const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
   const [bookingTab, setBookingTab] = useState('flights');
   
   // Real-time Booking Flow State
@@ -373,6 +382,7 @@ function App() {
   const [budgetFilter, setBudgetFilter] = useState('All');
   const [sortOrder, setSortOrder] = useState('Recommended');
   const [adminStats, setAdminStats] = useState(null);
+  const [adminError, setAdminError] = useState('');
   const [newPackage, setNewPackage] = useState({
     title: 'Singapore Smart City Escape',
     region: 'World',
@@ -450,6 +460,14 @@ function App() {
   const handleCheckout = () => setBookingFlowState('checkout');
   const handleConfirm = async () => {
     setBookingError('');
+
+    if (!isLoggedIn || !getAuthToken()) {
+      setBookingError('Please sign in or create an account before confirming your booking.');
+      setAuthMode('login');
+      setShowLoginModal(true);
+      return;
+    }
+
     setIsBookingSaving(true);
 
     const bookingPayload = {
@@ -471,17 +489,7 @@ function App() {
       setSavedBookings((current) => [savedBooking, ...current.filter((item) => item.id !== savedBooking.id)]);
       setBookingFlowState('success');
     } catch (error) {
-      const offlineBooking = {
-        id: `OFF-${Date.now().toString().slice(-6)}`,
-        status: 'OFFLINE_SAVED',
-        paymentStatus: 'PENDING_SYNC',
-        createdAt: new Date().toISOString(),
-        ...bookingPayload
-      };
-      setLatestBooking(offlineBooking);
-      setSavedBookings((current) => [offlineBooking, ...current]);
-      setBookingError(`Backend not reachable, so this booking was saved in the browser. ${error.message}`);
-      setBookingFlowState('success');
+      setBookingError(error.message || 'We could not save this booking. Please try again.');
     } finally {
       setIsBookingSaving(false);
     }
@@ -500,12 +508,17 @@ function App() {
 
   const handleCreatePackage = async (event) => {
     event.preventDefault();
-    const created = await api.createPackage({
-      ...newPackage,
-      priceRaw: Number(newPackage.priceRaw)
-    });
-    setAllPackages((current) => [created, ...current]);
-    await refreshAdminData();
+    setAdminError('');
+    try {
+      const created = await api.createPackage({
+        ...newPackage,
+        priceRaw: Number(newPackage.priceRaw)
+      });
+      setAllPackages((current) => [created, ...current]);
+      await refreshAdminData();
+    } catch (error) {
+      setAdminError(error.message);
+    }
   };
 
   const handleGenerateAiPlan = async (event) => {
@@ -591,6 +604,10 @@ function App() {
   }, [isLoggedIn]);
 
   useEffect(() => {
+    storage.set('wanderlust.currentUser', currentUser);
+  }, [currentUser]);
+
+  useEffect(() => {
     storage.set('wanderlust.latestBooking', latestBooking);
   }, [latestBooking]);
 
@@ -629,12 +646,18 @@ function App() {
   useEffect(() => {
     let isMounted = true;
 
-    Promise.all([api.getBookings(), api.getPackages(), api.getAdminStats()])
-      .then(([bookings, packages, stats]) => {
+    Promise.all([api.getBookings(), api.getPackages(), api.getAdminStats().catch(() => null), api.me().catch(() => ({ user: null }))])
+      .then(([bookings, packages, stats, session]) => {
         if (isMounted) {
           setSavedBookings(bookings);
           setAllPackages(packages);
           setAdminStats(stats);
+          if (session.user) {
+            setCurrentUser(session.user);
+            setIsLoggedIn(true);
+          } else if (!getAuthToken()) {
+            setIsLoggedIn(false);
+          }
         }
       })
       .catch(() => {
@@ -692,10 +715,39 @@ function App() {
     setDraggedItemIndex(null);
   };
 
-  const handleLoginSubmit = (e) => {
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
-    setIsLoggedIn(true);
-    setShowLoginModal(false);
+    setAuthError('');
+    setAuthLoading(true);
+
+    try {
+      const result = authMode === 'register'
+        ? await api.register(authForm)
+        : await api.login({ email: authForm.email, password: authForm.password });
+      setAuthToken(result.token);
+      setCurrentUser(result.user);
+      setTraveler((savedTraveler) => ({
+        ...savedTraveler,
+        name: result.user.name,
+        email: result.user.email
+      }));
+      setIsLoggedIn(true);
+      setShowLoginModal(false);
+      const bookings = await api.getBookings();
+      setSavedBookings(bookings);
+      await refreshAdminData();
+    } catch (error) {
+      setAuthError(error.message);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    setAuthToken(null);
+    setCurrentUser(null);
+    setIsLoggedIn(false);
+    setSavedBookings([]);
   };
 
   return (
@@ -705,20 +757,58 @@ function App() {
         <div className="modal-overlay">
           <div className="login-modal">
             <button className="close-btn" onClick={() => setShowLoginModal(false)}>Ã—</button>
-            <h2 style={{ marginBottom: '20px', color: 'var(--secondary)' }}>Welcome Back</h2>
+            <h2 style={{ marginBottom: '8px', color: 'var(--secondary)' }}>{authMode === 'register' ? 'Create Voyara Account' : 'Welcome Back'}</h2>
+            <p style={{ marginBottom: '20px', color: '#6b7280', lineHeight: 1.5 }}>
+              {authMode === 'register' ? 'Register to save bookings to your account.' : 'Login to see your saved trips and admin access.'}
+            </p>
             <form onSubmit={handleLoginSubmit}>
+              {authMode === 'register' && (
+                <div className="form-group">
+                  <label>Full Name</label>
+                  <input
+                    value={authForm.name}
+                    onChange={(event) => setAuthForm({ ...authForm, name: event.target.value })}
+                    required
+                  />
+                </div>
+              )}
               <div className="form-group">
                 <label>Email Address</label>
-                <input type="email" placeholder="Enter your email" required />
+                <input
+                  type="email"
+                  placeholder="Enter your email"
+                  value={authForm.email}
+                  onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })}
+                  required
+                />
               </div>
               <div className="form-group">
                 <label>Password</label>
-                <input type="password" placeholder="Enter your password" required />
+                <input
+                  type="password"
+                  placeholder="Enter your password"
+                  value={authForm.password}
+                  onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })}
+                  required
+                />
               </div>
-              <button type="submit" className="btn-primary" style={{ width: '100%', marginTop: '10px' }}>Login Securely</button>
+              {authError && <div className="auth-error">{authError}</div>}
+              <button type="submit" className="btn-primary" style={{ width: '100%', marginTop: '10px' }}>
+                {authLoading ? 'Please wait...' : authMode === 'register' ? 'Create Account' : 'Login Securely'}
+              </button>
             </form>
             <p style={{ marginTop: '16px', textAlign: 'center', fontSize: '14px', color: '#6b7280' }}>
-              Don&apos;t have an account? <span style={{ color: 'var(--primary)', cursor: 'pointer', fontWeight: 'bold' }}>Sign Up</span>
+              {authMode === 'register' ? 'Already have an account?' : "Don't have an account?"}{' '}
+              <button
+                type="button"
+                className="auth-mode-btn"
+                onClick={() => {
+                  setAuthError('');
+                  setAuthMode(authMode === 'register' ? 'login' : 'register');
+                }}
+              >
+                {authMode === 'register' ? 'Login' : 'Sign Up'}
+              </button>
             </p>
           </div>
         </div>
@@ -739,8 +829,9 @@ function App() {
         </div>
         {isLoggedIn ? (
           <div className="user-profile">
-            <div className="avatar">VS</div>
-            <span style={{ color: 'white', fontWeight: 'bold', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>Vanisha Singh</span>
+            <div className="avatar">{(currentUser?.name || 'Vanisha Singh').split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</div>
+            <span style={{ color: 'white', fontWeight: 'bold', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{currentUser?.name || 'Vanisha Singh'}</span>
+            <button className="logout-btn" type="button" onClick={handleLogout}>Logout</button>
           </div>
         ) : (
           <button className="btn-primary" onClick={() => setShowLoginModal(true)}>Sign In</button>
@@ -1364,7 +1455,7 @@ function App() {
 
         <section id="admin" className="section" style={{ paddingTop: 0 }}>
           <h2 className="section-title">Admin Dashboard</h2>
-          <p className="section-note">Manage packages and see booking data from the backend database file.</p>
+          <p className="section-note">Manage packages through protected admin APIs. Login with the admin account to unlock package creation and live stats.</p>
 
           <div className="admin-grid">
             <div className="admin-stats">
@@ -1372,10 +1463,13 @@ function App() {
               <div className="admin-stat"><span>Revenue</span><strong>Rs. {Number(adminStats?.revenue || 0).toLocaleString()}</strong></div>
               <div className="admin-stat"><span>Custom Packages</span><strong>{adminStats?.customPackages ?? 0}</strong></div>
               <div className="admin-stat"><span>Booked Destinations</span><strong>{adminStats?.destinations ?? 0}</strong></div>
+              <div className="admin-stat"><span>Registered Users</span><strong>{adminStats?.users ?? (currentUser ? 1 : 0)}</strong></div>
+              <div className="admin-stat"><span>Database</span><strong>{adminStats?.database || 'Login required'}</strong></div>
             </div>
 
             <form className="admin-form" onSubmit={handleCreatePackage}>
               <h3>Add New Package</h3>
+              {adminError && <div className="auth-error">{adminError}</div>}
               <div className="form-group">
                 <label>Package Title</label>
                 <input value={newPackage.title} onChange={(e) => setNewPackage({ ...newPackage, title: e.target.value })} />
