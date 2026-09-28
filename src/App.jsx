@@ -1,5 +1,5 @@
 ﻿import { useMemo, useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap, LayersControl } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './index.css';
@@ -445,6 +445,7 @@ function App() {
   const [savedBookings, setSavedBookings] = useState(() => storage.get('wanderlust.savedBookings', []));
   const [bookingError, setBookingError] = useState('');
   const [isBookingSaving, setIsBookingSaving] = useState(false);
+  const [isResultsLoading, setIsResultsLoading] = useState(false);
   const [bookingSearch, setBookingSearch] = useState(() => storage.get('wanderlust.bookingSearch', {
     from: 'Delhi',
     departure: '',
@@ -540,7 +541,11 @@ function App() {
     }));
   };
 
-  const handleSearchBooking = () => setBookingFlowState('results');
+  const handleSearchBooking = () => {
+    setIsResultsLoading(true);
+    setBookingFlowState('results');
+    window.setTimeout(() => setIsResultsLoading(false), 450);
+  };
   const handleSelectVehicle = (vehicle) => {
     setSelectedVehicle(vehicle);
     setSelectedSeats(isStayBooking(bookingTab) ? [`${paxDetails.rooms} Room${paxDetails.rooms > 1 ? 's' : ''}`] : []);
@@ -636,6 +641,7 @@ function App() {
   // --- NEW KILLER FEATURES STATE ---
   // 1. Live Radar
   const [radarActive, setRadarActive] = useState(false);
+  const [mapLayer, setMapLayer] = useState('street');
   const radarPoints = radarActive ? [
     { id: 1, pos: [selectedDay.coords[0] + 0.005, selectedDay.coords[1] + 0.005], label: 'ðŸ¥ Medical Shop' },
     { id: 2, pos: [selectedDay.coords[0] - 0.003, selectedDay.coords[1] + 0.008], label: 'ðŸ” Street Food' },
@@ -1193,7 +1199,12 @@ function App() {
                   <p className="results-context">
                     {bookingPreferences.companion} trip - {paxDetails.adults + paxDetails.children + paxDetails.infants} travellers - {paxDetails.rooms} room{paxDetails.rooms > 1 ? 's' : ''} - Add-ons Rs. {selectedAddOnsTotal.toLocaleString()}
                   </p>
-                  {bookingOptions.map(v => (
+                  {isResultsLoading ? [1, 2, 3].map((item) => (
+                    <div className="vehicle-card booking-skeleton" key={item} aria-label="Loading travel options">
+                      <div className="skeleton-lines"><span></span><span></span><span></span></div>
+                      <div className="skeleton-action"></div>
+                    </div>
+                  )) : bookingOptions.map(v => (
                     <div key={v.id} className="vehicle-card">
                       <div>
                         <h4 style={{ fontSize: '18px', marginBottom: '4px', color: 'var(--secondary)' }}>{v.name}</h4>
@@ -1360,6 +1371,7 @@ function App() {
                         <p className="value" style={{ color: 'var(--primary)' }}>{latestBooking?.id}</p>
                       </div>
                     </div>
+                    <div className="ticket-barcode" aria-label="Digital boarding barcode"></div>
                   </div>
                   
                   <button className="btn-primary" onClick={resetBooking} style={{ marginTop: '40px', background: 'var(--secondary)' }}>Done / Book Another</button>
@@ -1788,46 +1800,41 @@ function App() {
             {/* Interactive Leaflet Map with Google Maps-like Layers */}
             <div className="planner-map" style={{ zIndex: 1, padding: 0 }}>
               <MapContainer center={selectedDay.coords} zoom={13} maxZoom={19} style={{ height: '100%', width: '100%', borderRadius: '20px' }} zoomControl={true}>
-                <LayersControl position="topright">
-                  {/* Detailed Street Map (Like Google Maps Default) */}
-                  <LayersControl.BaseLayer checked name="Detailed Street Map">
-                    <TileLayer 
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                      attribution='&copy; OpenStreetMap contributors'
-                      maxZoom={19}
-                    />
-                  </LayersControl.BaseLayer>
-                  {/* Satellite View (Like Google Earth/Maps Satellite) */}
-                  <LayersControl.BaseLayer name="Satellite View">
-                    <TileLayer 
-                      url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                      attribution='&copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
-                      maxZoom={19}
-                    />
-                  </LayersControl.BaseLayer>
-                  {/* Minimal Voyager (Original) */}
-                  <LayersControl.BaseLayer name="Minimal View">
-                    <TileLayer 
-                      url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" 
-                      maxZoom={19}
-                    />
-                  </LayersControl.BaseLayer>
-                </LayersControl>
+                <TileLayer
+                  key={mapLayer}
+                  url={mapLayer === 'satellite'
+                    ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                    : mapLayer === 'minimal'
+                      ? 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
+                      : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'}
+                  attribution={mapLayer === 'satellite' ? '&copy; Esri and contributors' : '&copy; OpenStreetMap contributors'}
+                  maxZoom={19}
+                />
 
                 <MapUpdater center={selectedDay.coords} />
                 {itinerary.map((day) => (
                   <Marker key={day.id} position={day.coords}>
-                    <Popup><strong>{day.title}</strong><br/>{day.details}</Popup>
+                    <Popup className="voyara-popup"><strong>{day.title}</strong><br/>{day.details}</Popup>
                   </Marker>
                 ))}
 
                 {/* --- LIVE RADAR MARKERS --- */}
                 {radarPoints.map((pt) => (
                   <Marker key={`radar-${pt.id}`} position={pt.pos} icon={radarIcon}>
-                    <Popup><strong>{pt.label}</strong></Popup>
+                    <Popup className="voyara-popup"><strong>{pt.label}</strong><br/>Nearby travel essential</Popup>
                   </Marker>
                 ))}
               </MapContainer>
+
+              <div className="map-layer-switcher" aria-label="Map style">
+                {[
+                  ['street', 'Street'],
+                  ['satellite', 'Satellite'],
+                  ['minimal', 'Minimal']
+                ].map(([id, label]) => (
+                  <button key={id} type="button" className={mapLayer === id ? 'active' : ''} onClick={() => setMapLayer(id)}>{label}</button>
+                ))}
+              </div>
 
               <button 
                 className={`radar-btn ${radarActive ? 'active' : ''}`}
@@ -1915,8 +1922,9 @@ function App() {
                 <p style={{ color: '#6b7280' }}>out of â‚¹{totalBudget.toLocaleString()}</p>
                 
                 <div className="progress-bar-container">
-                  <div className="progress-bar-fill" style={{ width: `${progressPercent}%`, background: progressPercent > 80 ? 'linear-gradient(to right, #ef4444, #dc2626)' : 'linear-gradient(to right, #22c55e, #10b981)' }}></div>
+                  <div className="progress-bar-fill" style={{ width: `${progressPercent}%`, background: progressPercent > 80 ? 'linear-gradient(to right, #f59e0b, #ec4899)' : progressPercent > 55 ? 'linear-gradient(to right, #22c55e, #facc15)' : 'linear-gradient(to right, #22c55e, #10b981)' }}></div>
                 </div>
+                <p className="budget-status">{progressPercent > 80 ? 'Budget limit is close' : progressPercent > 55 ? 'You are entering your comfort buffer' : 'You are comfortably within budget'}</p>
               </div>
 
               <div className="expense-list">
