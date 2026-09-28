@@ -12,11 +12,13 @@ export function createVercelHandler(pathFromRequest) {
     }
 
     try {
+      const url = new URL(req.url, `https://${req.headers.host || 'voyara.vercel.app'}`);
       const result = await handleApiRequest({
         method: req.method,
         path: pathFromRequest(req),
         body: req.body || {},
         headers: req.headers,
+        query: Object.fromEntries(url.searchParams),
       });
 
       for (const [key, value] of Object.entries(result.headers || {})) {

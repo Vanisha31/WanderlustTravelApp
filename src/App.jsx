@@ -56,6 +56,7 @@ const defaultExpenses = [
 
 const destinationKeyMap = {
   manali: 'manali',
+  himachal: 'manali',
   kasol: 'manali',
   kheerganga: 'manali',
   shimla: 'shimla',
@@ -64,16 +65,35 @@ const destinationKeyMap = {
   jaipur: 'jaipur',
   jodhpur: 'jaipur',
   udaipur: 'jaipur',
+  rajasthan: 'jaipur',
+  bali: 'ubud',
   ubud: 'ubud',
   'nusa penida': 'ubud',
   paris: 'paris',
   zurich: 'paris',
+  switzerland: 'paris',
   'dubai city': 'dubai',
   dubai: 'dubai',
   safari: 'dubai',
+  kerala: 'alleppey',
+  kerela: 'alleppey',
   alleppey: 'alleppey',
-  munnar: 'alleppey'
+  munnar: 'alleppey',
+  kochi: 'alleppey',
+  cochin: 'alleppey',
+  kovalam: 'alleppey'
 };
+
+const destinationSearchGroups = [
+  { key: 'manali', destination: 'Manali', terms: ['manali', 'himachal', 'kasol', 'kheerganga'] },
+  { key: 'shimla', destination: 'Shimla', terms: ['shimla', 'kufri'] },
+  { key: 'bir', destination: 'Bir Billing', terms: ['bir billing', 'bir'] },
+  { key: 'jaipur', destination: 'Rajasthan', terms: ['rajasthan', 'jaipur', 'jodhpur', 'udaipur'] },
+  { key: 'ubud', destination: 'Bali', terms: ['bali', 'ubud', 'nusa penida'] },
+  { key: 'paris', destination: 'Paris', terms: ['paris', 'zurich', 'switzerland', 'swiss'] },
+  { key: 'dubai', destination: 'Dubai', terms: ['dubai', 'burj khalifa', 'marina', 'desert safari'] },
+  { key: 'alleppey', destination: 'Kerala', terms: ['kerala', 'kerela', 'alleppey', 'munnar', 'kochi', 'cochin', 'kovalam'] }
+];
 
 function toTitleCase(value) {
   return value
@@ -92,6 +112,73 @@ function findPackageDestination(query) {
   }
 
   return null;
+}
+
+function resolveDestinationSearch(query) {
+  const normalizedQuery = query.trim().toLowerCase();
+  const directMatch = destinationSearchGroups.find((group) =>
+    group.terms.some((term) => normalizedQuery.includes(term))
+  );
+
+  if (directMatch) return directMatch;
+
+  const packageDestination = findPackageDestination(normalizedQuery);
+  if (!packageDestination) return null;
+
+  const key = getLocalDestinationKey(packageDestination);
+  return key ? { key, destination: getDestinationDisplayName(key) } : null;
+}
+
+const destinationFallbackImage = 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=1600&auto=format&fit=crop';
+
+function createDestinationGuide(location, nearbyPlaces = []) {
+  const destination = location.name;
+  const points = nearbyPlaces.length ? nearbyPlaces : [
+    { name: `${destination} City Centre`, category: 'Local orientation', latitude: location.latitude, longitude: location.longitude },
+    { name: `${destination} Cultural District`, category: 'Sightseeing', latitude: location.latitude + 0.015, longitude: location.longitude + 0.01 },
+    { name: `${destination} Local Food Quarter`, category: 'Food and culture', latitude: location.latitude - 0.01, longitude: location.longitude - 0.012 }
+  ];
+  const sightseeing = points.filter((place) => !['cafe', 'restaurant'].includes(place.category)).slice(0, 6);
+  const food = points.filter((place) => ['cafe', 'restaurant'].includes(place.category)).slice(0, 3);
+  const itineraryPoints = [...sightseeing, ...points].slice(0, 3);
+  const defaultDay = (index) => itineraryPoints[index] || points[index] || points[0];
+
+  return {
+    title: `Explore ${destination} Your Way`,
+    subtitle: `${location.country ? `${location.country} | ` : ''}Live map, nearby highlights, and a flexible first-time visitor plan for ${destination}.`,
+    bgUrl: destinationFallbackImage,
+    exploreCards: sightseeing.map((place, index) => ({
+      id: `place-${index}-${place.name}`,
+      title: place.name,
+      location: destination,
+      tag: place.category.replace(/^./, (letter) => letter.toUpperCase()),
+      desc: `A nearby ${place.category.toLowerCase()} to consider while planning your ${destination} itinerary.`,
+      img: destinationFallbackImage
+    })),
+    cafesAndRentals: (food.length ? food : [
+      { name: `${destination} Local Cafe`, category: 'Cafe' },
+      { name: `${destination} City Transfer`, category: 'Local transport' }
+    ]).map((place, index) => ({
+      id: `local-${index}-${place.name}`,
+      name: place.name,
+      type: `${place.category} | Nearby recommendation`,
+      cost: 'Check live price',
+      desc: `A location-based suggestion found for your ${destination} trip.`
+    })),
+    itinerary: [0, 1, 2].map((index) => {
+      const place = defaultDay(index);
+      return {
+        id: `day-${index + 1}-${destination}`,
+        title: `Day ${index + 1}: ${index === 0 ? 'Arrival and orientation' : index === 1 ? 'Local highlights' : 'Flexible discovery'}`,
+        details: place.name,
+        coords: [place.latitude, place.longitude],
+        altitude: 'Local conditions vary',
+        temp: 'Check local forecast',
+        gear: ['Comfortable shoes', 'Phone charger', 'Water bottle'],
+        emergency: { hospital: 'Use local emergency services', police: 'Check local emergency number' }
+      };
+    })
+  };
 }
 
 function getLocalDestinationKey(destination) {
@@ -329,6 +416,9 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentKey, setCurrentKey] = useState(initialDestination.currentKey);
   const [bookingDestination, setBookingDestination] = useState(initialDestination.bookingDestination);
+  const [externalDestination, setExternalDestination] = useState(null);
+  const [destinationSearchError, setDestinationSearchError] = useState('');
+  const [isDestinationSearching, setIsDestinationSearching] = useState(false);
   
   // New Features State
   const [currentUser, setCurrentUser] = useState(() => storage.get('wanderlust.currentUser', null));
@@ -532,7 +622,8 @@ function App() {
     }
   };
   
-  const destData = useMemo(() => travelData[currentKey], [currentKey]);
+  const destData = useMemo(() => externalDestination || travelData[currentKey] || travelData.manali, [currentKey, externalDestination]);
+  const plannerDestinationName = externalDestination?.name || getDestinationDisplayName(currentKey);
   
   // State for interactive features
   const [itinerary, setItinerary] = useState(() => storage.get('wanderlust.itinerary.manali', travelData.manali.itinerary));
@@ -671,25 +762,30 @@ function App() {
 
   const handleSearch = (e) => {
     e.preventDefault();
-    const query = searchQuery.toLowerCase();
-    const packageDestination = findPackageDestination(query);
-    
-    if (query.includes('shimla')) {
-      setCurrentKey('shimla');
-      setBookingDestination('Shimla');
-    } else if (query.includes('bir')) {
-      setCurrentKey('bir');
-      setBookingDestination('Bir Billing');
-    } else if (query.includes('manali')) {
-      setCurrentKey('manali');
-      setBookingDestination('Manali');
-    } else if (packageDestination) {
-      const localDestinationKey = destinationKeyMap[packageDestination.toLowerCase()];
-      if (localDestinationKey) setCurrentKey(localDestinationKey);
-      setBookingDestination(packageDestination);
-    } else if (searchQuery.trim()) {
-      setBookingDestination(toTitleCase(searchQuery.trim()));
+    const match = resolveDestinationSearch(searchQuery);
+
+    if (match) {
+      setDestinationSearchError('');
+      setExternalDestination(null);
+      setCurrentKey(match.key);
+      setBookingDestination(match.destination);
+      return;
     }
+
+    const query = searchQuery.trim();
+    if (!query) return;
+
+    setDestinationSearchError('');
+    setIsDestinationSearching(true);
+    api.findDestination(query)
+      .then(async (location) => {
+        const nearbyPlaces = await api.getNearbyPlaces(location.latitude, location.longitude).catch(() => []);
+        setExternalDestination({ ...createDestinationGuide(location, nearbyPlaces), name: location.name });
+        setCurrentKey('custom');
+        setBookingDestination(location.name);
+      })
+      .catch((error) => setDestinationSearchError(error.message || 'Destination search is unavailable right now.'))
+      .finally(() => setIsDestinationSearching(false));
   };
 
   // Drag and drop handlers
@@ -859,8 +955,9 @@ function App() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
-            <button type="submit" className="search-btn">Search & Go</button>
+            <button type="submit" className="search-btn" disabled={isDestinationSearching}>{isDestinationSearching ? 'Finding place...' : 'Search & Go'}</button>
           </form>
+          {destinationSearchError && <p className="destination-search-error">{destinationSearchError}</p>}
         </div>
       </header>
 
@@ -1496,8 +1593,8 @@ function App() {
 
         {/* Dynamic Explore Section */}
         <section id="explore" className="section">
-          <h2 className="section-title">Must Visit in {getDestinationDisplayName(currentKey)}</h2>
-          <p className="section-note">Featured itinerary details are available for Manali, Shimla, and Bir Billing. Package booking supports every destination listed in the travel packages.</p>
+          <h2 className="section-title">Must Visit in {plannerDestinationName}</h2>
+          <p className="section-note">Search any city, region, or country. Featured destinations include curated guides; new destinations use real map search and nearby place data.</p>
           <div className="cards-grid">
             {destData.exploreCards.map(place => (
               <div className="place-card" key={place.id}>
@@ -1648,7 +1745,7 @@ function App() {
         {/* Planner Dashboard - Interactive */}
         <section id="planner" className="section" style={{ paddingTop: 0 }}>
           <h2 className="section-title">Your Custom Itinerary (Drag to Reorder)</h2>
-          <p className="section-note">Showing planner for {getDestinationDisplayName(currentKey)}. Your itinerary order, wallet expenses, and latest booking are saved in this browser.</p>
+          <p className="section-note">Showing planner for {plannerDestinationName}. Your itinerary order, wallet expenses, and latest booking are saved in this browser.</p>
           
           <div className="planner-panel">
             {/* Draggable Sidebar */}

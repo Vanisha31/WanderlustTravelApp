@@ -41,6 +41,7 @@ const server = createServer(async (req, res) => {
       path,
       body: req.method === 'GET' ? {} : await readBody(req),
       headers: req.headers,
+      query: Object.fromEntries(url.searchParams),
     });
     send(res, result);
   } catch (error) {

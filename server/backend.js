@@ -637,6 +637,66 @@ function createAiPlan(body = {}) {
   };
 }
 
+function validateLocationQuery(value) {
+  const query = String(value || '').trim();
+  if (query.length < 2 || query.length > 100) return null;
+  return query;
+}
+
+async function findDestination(query) {
+  const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`, {
+    headers: { 'User-Agent': 'VoyaraTravel/1.0 (destination search)' },
+    signal: AbortSignal.timeout(8000),
+  });
+
+  if (!response.ok) throw new Error('Destination search is temporarily unavailable');
+  const [location] = await response.json();
+  if (!location) throw new Error('We could not find that destination. Try a city, region, or country name.');
+
+  const address = location.address || {};
+  return {
+    name: address.city || address.town || address.village || address.state || location.display_name.split(',')[0],
+    displayName: location.display_name,
+    latitude: Number(location.lat),
+    longitude: Number(location.lon),
+    country: address.country || '',
+  };
+}
+
+async function findNearbyPlaces(latitude, longitude) {
+  const lat = Number(latitude);
+  const lon = Number(longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return [];
+
+  const overpassQuery = `[out:json][timeout:8];(nwr["tourism"~"attraction|museum|viewpoint|gallery"](around:8000,${lat},${lon});nwr["amenity"~"cafe|restaurant"](around:5000,${lat},${lon}););out center 18;`;
+
+  try {
+    const response = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        'User-Agent': 'VoyaraTravel/1.0 (nearby places)',
+      },
+      body: new URLSearchParams({ data: overpassQuery }),
+      signal: AbortSignal.timeout(9000),
+    });
+    if (!response.ok) return [];
+
+    const data = await response.json();
+    return (data.elements || [])
+      .map((place) => ({
+        name: place.tags?.name,
+        category: place.tags?.tourism || place.tags?.amenity || 'Local place',
+        latitude: Number(place.lat ?? place.center?.lat),
+        longitude: Number(place.lon ?? place.center?.lon),
+      }))
+      .filter((place) => place.name && Number.isFinite(place.latitude) && Number.isFinite(place.longitude))
+      .slice(0, 12);
+  } catch {
+    return [];
+  }
+}
+
 function json(status, body) {
   return {
     status,
@@ -650,7 +710,7 @@ function requireAdmin(user) {
   return json(403, { error: 'Admin access required' });
 }
 
-export async function handleApiRequest({ method, path, body = {}, headers = {} }) {
+export async function handleApiRequest({ method, path, body = {}, headers = {}, query = {} }) {
   await ensureSchema();
   const user = await getCurrentUser(headers);
 
@@ -686,6 +746,16 @@ export async function handleApiRequest({ method, path, body = {}, headers = {} }
 
   if (method === 'GET' && path === '/destinations') return json(200, travelData);
   if (method === 'GET' && path === '/packages') return json(200, await listPackages());
+
+  if (method === 'GET' && path === '/locations/search') {
+    const destinationQuery = validateLocationQuery(query.q);
+    if (!destinationQuery) return json(400, { error: 'Enter at least two characters to search for a destination' });
+    return json(200, await findDestination(destinationQuery));
+  }
+
+  if (method === 'GET' && path === '/locations/nearby') {
+    return json(200, await findNearbyPlaces(query.lat, query.lon));
+  }
 
   if (method === 'POST' && path === '/packages') {
     const denied = requireAdmin(user);

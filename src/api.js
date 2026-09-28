@@ -57,6 +57,12 @@ export const api = {
   getPackages() {
     return request('/packages');
   },
+  findDestination(query) {
+    return request(`/locations/search?q=${encodeURIComponent(query)}`);
+  },
+  getNearbyPlaces(latitude, longitude) {
+    return request(`/locations/nearby?lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}`);
+  },
   getBookings() {
     return request('/bookings');
   },
