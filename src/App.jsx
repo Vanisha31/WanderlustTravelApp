@@ -146,24 +146,27 @@ function createDestinationGuide(location, nearbyPlaces = []) {
   return {
     title: `Explore ${destination} Your Way`,
     subtitle: `${location.country ? `${location.country} | ` : ''}Live map, nearby highlights, and a flexible first-time visitor plan for ${destination}.`,
-    bgUrl: destinationFallbackImage,
+    bgUrl: location.imageUrl || destinationFallbackImage,
     exploreCards: sightseeing.map((place, index) => ({
       id: `place-${index}-${place.name}`,
       title: place.name,
       location: destination,
       tag: place.category.replace(/^./, (letter) => letter.toUpperCase()),
       desc: `A nearby ${place.category.toLowerCase()} to consider while planning your ${destination} itinerary.`,
-      img: destinationFallbackImage
+      img: place.imageUrl || location.imageUrl || destinationFallbackImage
     })),
-    cafesAndRentals: (food.length ? food : [
-      { name: `${destination} Local Cafe`, category: 'Cafe' },
-      { name: `${destination} City Transfer`, category: 'Local transport' }
-    ]).map((place, index) => ({
+    cafesAndRentals: [...(food.length ? food : [
+      { name: `${destination} Local Cafe`, category: 'Cafe' }
+    ]),
+      { name: `${destination} Local Train / Metro`, category: 'Local transport' }
+    ].slice(0, 3).map((place, index) => ({
       id: `local-${index}-${place.name}`,
       name: place.name,
-      type: `${place.category} | Nearby recommendation`,
+      type: place.category === 'Local transport' ? 'Local transport | Check official route map' : `${place.category} | Nearby recommendation`,
       cost: 'Check live price',
-      desc: `A location-based suggestion found for your ${destination} trip.`
+      desc: place.category === 'Local transport'
+        ? `Use the official ${destination} transit map for current routes, fares, and service notices.`
+        : `A location-based suggestion found for your ${destination} trip.`
     })),
     itinerary: [0, 1, 2].map((index) => {
       const place = defaultDay(index);
@@ -778,11 +781,17 @@ function App() {
     setDestinationSearchError('');
     setIsDestinationSearching(true);
     api.findDestination(query)
-      .then(async (location) => {
-        const nearbyPlaces = await api.getNearbyPlaces(location.latitude, location.longitude).catch(() => []);
-        setExternalDestination({ ...createDestinationGuide(location, nearbyPlaces), name: location.name });
+      .then((location) => {
+        setExternalDestination({ ...createDestinationGuide(location), name: location.name });
         setCurrentKey('custom');
         setBookingDestination(location.name);
+        return api.getNearbyPlaces(location.latitude, location.longitude)
+          .then((nearbyPlaces) => {
+            setExternalDestination({ ...createDestinationGuide(location, nearbyPlaces), name: location.name });
+          })
+          .catch(() => {
+            // The map and starter plan are already visible if the nearby directory is unavailable.
+          });
       })
       .catch((error) => setDestinationSearchError(error.message || 'Destination search is unavailable right now.'))
       .finally(() => setIsDestinationSearching(false));

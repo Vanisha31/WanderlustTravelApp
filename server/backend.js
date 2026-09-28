@@ -654,12 +654,29 @@ async function findDestination(query) {
   if (!location) throw new Error('We could not find that destination. Try a city, region, or country name.');
 
   const address = location.address || {};
+  const name = address.city || address.town || address.village || address.state || location.display_name.split(',')[0];
+  let imageUrl = '';
+
+  try {
+    const imageResponse = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(query)}`, {
+      headers: { 'User-Agent': 'VoyaraTravel/1.0 (destination images)' },
+      signal: AbortSignal.timeout(6000),
+    });
+    if (imageResponse.ok) {
+      const imageData = await imageResponse.json();
+      imageUrl = imageData.originalimage?.source || imageData.thumbnail?.source || '';
+    }
+  } catch {
+    // The destination remains usable when a public image source is unavailable.
+  }
+
   return {
-    name: address.city || address.town || address.village || address.state || location.display_name.split(',')[0],
+    name,
     displayName: location.display_name,
     latitude: Number(location.lat),
     longitude: Number(location.lon),
     country: address.country || '',
+    imageUrl,
   };
 }
 
@@ -668,30 +685,26 @@ async function findNearbyPlaces(latitude, longitude) {
   const lon = Number(longitude);
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return [];
 
-  const overpassQuery = `[out:json][timeout:8];(nwr["tourism"~"attraction|museum|viewpoint|gallery"](around:8000,${lat},${lon});nwr["amenity"~"cafe|restaurant"](around:5000,${lat},${lon}););out center 18;`;
+  const wikipediaUrl = `https://en.wikipedia.org/w/api.php?action=query&format=json&generator=geosearch&ggscoord=${lat}%7C${lon}&ggsradius=9000&ggslimit=10&prop=coordinates%7Cpageimages&pithumbsize=900&origin=*`;
 
   try {
-    const response = await fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-        'User-Agent': 'VoyaraTravel/1.0 (nearby places)',
-      },
-      body: new URLSearchParams({ data: overpassQuery }),
-      signal: AbortSignal.timeout(9000),
+    const response = await fetch(wikipediaUrl, {
+      headers: { 'User-Agent': 'VoyaraTravel/1.0 (nearby landmarks)' },
+      signal: AbortSignal.timeout(8500),
     });
     if (!response.ok) return [];
 
-    const data = await response.json();
-    return (data.elements || [])
-      .map((place) => ({
-        name: place.tags?.name,
-        category: place.tags?.tourism || place.tags?.amenity || 'Local place',
-        latitude: Number(place.lat ?? place.center?.lat),
-        longitude: Number(place.lon ?? place.center?.lon),
+    const wikipediaData = await response.json();
+    return Object.values(wikipediaData.query?.pages || {})
+      .map((page) => ({
+        name: page.title,
+        category: 'Local landmark',
+        latitude: Number(page.coordinates?.[0]?.lat),
+        longitude: Number(page.coordinates?.[0]?.lon),
+        imageUrl: page.thumbnail?.source || '',
       }))
       .filter((place) => place.name && Number.isFinite(place.latitude) && Number.isFinite(place.longitude))
-      .slice(0, 12);
+      .slice(0, 10);
   } catch {
     return [];
   }
